@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "c0a247c4457f",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/policy/policy-gate.ts",
+    "app/src/server/policy/policy-queries.ts",
+    "app/src/server/policy/policy-route.ts",
+    "app/src/server/policy/predicate-evaluator.ts",
+    "app/src/server/policy/types.ts",
+    "tests/acceptance/policy-node/policy-test-kit.ts",
+    "tests/acceptance/policy-node/walking-skeleton.test.ts",
+    "tests/unit/policy-gate.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/c0/a247c4457f/0/metadata.json",
+      "transcript": "/c0/a247c4457f/0/full.jsonl",
+      "context": "/c0/a247c4457f/0/context.md",
+      "content_hash": "/c0/a247c4457f/0/content_hash.txt",
+      "prompt": "/c0/a247c4457f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 27,
+    "cache_creation_tokens": 28391,
+    "cache_read_tokens": 2567630,
+    "output_tokens": 13533,
+    "api_call_count": 25
+  }
+}
