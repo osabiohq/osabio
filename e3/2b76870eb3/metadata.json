@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "e32b76870eb3",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/policy/rego-evaluator.ts",
+    "tests/unit/rego-evaluator.test.ts",
+    "vendor/regorus-wasm/regorusjs.d.ts",
+    "vendor/regorus-wasm/regorusjs.js",
+    "vendor/regorus-wasm/regorusjs_bg.wasm",
+    "vendor/regorus-wasm/regorusjs_bg.wasm.d.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e3/2b76870eb3/0/metadata.json",
+      "transcript": "/e3/2b76870eb3/0/full.jsonl",
+      "context": "/e3/2b76870eb3/0/context.md",
+      "content_hash": "/e3/2b76870eb3/0/content_hash.txt",
+      "prompt": "/e3/2b76870eb3/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  }
+}
