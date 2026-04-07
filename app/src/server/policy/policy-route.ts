@@ -234,8 +234,11 @@ async function handleCreatePolicy(
     return jsonError("invalid JSON body", 400);
   }
 
-  const validation = validatePolicyCreateBody(body as { title: unknown; description: unknown; rego_source: unknown });
+  const validation = await validatePolicyCreateBody(body as { title: unknown; description: unknown; rego_source: unknown });
   if (!validation.valid) {
+    if (validation.compileErrors && validation.compileErrors.length > 0) {
+      return jsonResponse({ error: validation.errors[0], errors: validation.compileErrors }, 400);
+    }
     return jsonError(validation.errors[0], 400);
   }
 
@@ -405,12 +408,15 @@ async function handleCreatePolicyVersion(
 
     // When overrides include rego_source, validate through the same path as create.
     if (overrides.rego_source !== undefined) {
-      const validation = validatePolicyCreateBody({
+      const validation = await validatePolicyCreateBody({
         title: overrides.title ?? sourcePolicy.title,
         description: overrides.description ?? sourcePolicy.description ?? "",
         rego_source: overrides.rego_source,
       });
       if (!validation.valid) {
+        if (validation.compileErrors && validation.compileErrors.length > 0) {
+          return jsonResponse({ error: validation.errors[0], errors: validation.compileErrors }, 400);
+        }
         return jsonError(validation.errors[0], 400);
       }
     }
