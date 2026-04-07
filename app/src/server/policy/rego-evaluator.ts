@@ -7,6 +7,8 @@
  * - Fail-closed: WASM load failure throws; callers catch to return deny
  */
 
+import type { IntentEvaluationContext } from "./types";
+
 export type CompileError = {
   line: number;
   column: number;
@@ -16,6 +18,12 @@ export type CompileError = {
 export type CompileResult =
   | { success: true }
   | { success: false; errors: CompileError[] };
+
+export type RegoEvaluationResult = {
+  decision: "allow" | "deny";
+  messages: string[];
+  evidence_requirement?: { min_count: number; required_types?: string[] };
+};
 
 // ---------------------------------------------------------------------------
 // WASM module type (subset of Regorus JS bindings)
@@ -27,7 +35,22 @@ type RegorusModule = {
 
 type RegorusEngine = {
   addPolicy(path: string, rego: string): string;
+  setInputJson(input: string): void;
+  evalQuery(query: string): string;
+  getPackages(): string[];
   free(): void;
+};
+
+// ---------------------------------------------------------------------------
+// evalQuery result shape
+// ---------------------------------------------------------------------------
+
+type EvalQueryResult = {
+  result?: Array<{
+    expressions: Array<{
+      value: unknown;
+    }>;
+  }>;
 };
 
 // ---------------------------------------------------------------------------
@@ -96,6 +119,127 @@ const parseRegorusErrorString = (errorString: string): CompileError[] => {
 };
 
 // ---------------------------------------------------------------------------
+// evalQuery helpers
+// ---------------------------------------------------------------------------
+
+const extractQueryValue = (queryResultJson: string): unknown => {
+  const parsed = JSON.parse(queryResultJson) as EvalQueryResult;
+  if (
+    !parsed.result ||
+    parsed.result.length === 0 ||
+    !parsed.result[0].expressions ||
+    parsed.result[0].expressions.length === 0
+  ) {
+    return undefined;
+  }
+  return parsed.result[0].expressions[0].value;
+};
+
+const extractAllowValue = (engine: RegorusEngine): boolean => {
+  const raw = engine.evalQuery("data.osabio.policy.allow");
+  const value = extractQueryValue(raw);
+  return value === true;
+};
+
+const extractDenyMessages = (engine: RegorusEngine): string[] => {
+  const raw = engine.evalQuery("data.osabio.policy.deny");
+  const value = extractQueryValue(raw);
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((msg): msg is string => typeof msg === "string");
+};
+
+const extractEvidenceRequirement = (
+  engine: RegorusEngine,
+): RegoEvaluationResult["evidence_requirement"] => {
+  const raw = engine.evalQuery("data.osabio.policy.evidence_requirement");
+  const value = extractQueryValue(raw);
+
+  if (value === undefined || value === null || typeof value !== "object") {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+
+  if (typeof candidate.min_count !== "number") {
+    console.warn(
+      "[rego-evaluator] evidence_requirement.min_count is not a number — treating as no requirement",
+      candidate,
+    );
+    return undefined;
+  }
+
+  const requiredTypes =
+    Array.isArray(candidate.required_types) &&
+    candidate.required_types.every((t) => typeof t === "string")
+      ? (candidate.required_types as string[])
+      : undefined;
+
+  if (
+    candidate.required_types !== undefined &&
+    requiredTypes === undefined
+  ) {
+    console.warn(
+      "[rego-evaluator] evidence_requirement.required_types contains non-string entries — ignoring field",
+      candidate.required_types,
+    );
+  }
+
+  return { min_count: candidate.min_count, required_types: requiredTypes };
+};
+
+// ---------------------------------------------------------------------------
+// Decision logic (fail-closed)
+// ---------------------------------------------------------------------------
+
+const buildDecision = (
+  allowValue: boolean,
+  denyMessages: string[],
+  evidenceRequirement: RegoEvaluationResult["evidence_requirement"],
+): RegoEvaluationResult => {
+  if (denyMessages.length > 0) {
+    return { decision: "deny", messages: denyMessages };
+  }
+  if (allowValue) {
+    return {
+      decision: "allow",
+      messages: [],
+      evidence_requirement: evidenceRequirement,
+    };
+  }
+  // Fail-closed: neither allow=true nor deny messages
+  return { decision: "deny", messages: ["policy produced no decision"] };
+};
+
+// ---------------------------------------------------------------------------
+// Package validation
+// ---------------------------------------------------------------------------
+
+const REQUIRED_PACKAGE = "data.osabio.policy";
+
+const validatePackage = (engine: RegorusEngine): void => {
+  const packages = engine.getPackages();
+  if (!packages.includes(REQUIRED_PACKAGE)) {
+    throw new Error("policy must declare package osabio.policy");
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Engine cache factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a new engine cache.
+ *
+ * The cache is keyed by "${policyId}:${version}" and stores pre-loaded Engine
+ * instances. Pass the cache as a parameter to evaluateRegoPolicy — this avoids
+ * module-level mutable state (AGENTS.md).
+ */
+export const createEngineCache = (): Map<string, RegorusEngine> =>
+  new Map<string, RegorusEngine>();
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -121,4 +265,50 @@ export const compileRego = async (source: string): Promise<CompileResult> => {
   } finally {
     engine.free();
   }
+};
+
+/**
+ * Evaluate a Rego policy against the given intent evaluation context.
+ *
+ * Queries data.osabio.policy.allow, data.osabio.policy.deny, and
+ * data.osabio.policy.evidence_requirement from the compiled engine.
+ *
+ * Decision logic (fail-closed):
+ * - deny set non-empty → decision: "deny", messages from deny set
+ * - allow=true, deny empty → decision: "allow"
+ * - allow=false, deny empty → decision: "deny", messages: ["policy produced no decision"]
+ *
+ * The engine is cached by "${policyId}:${version}" — pass the same cache
+ * across calls to reuse compiled engines for the same policy version.
+ *
+ * Throws if:
+ * - WASM module failed to load
+ * - Rego source does not declare package osabio.policy
+ */
+export const evaluateRegoPolicy = async (
+  regoSource: string,
+  policyId: string,
+  version: number,
+  context: IntentEvaluationContext,
+  cache: Map<string, RegorusEngine>,
+): Promise<RegoEvaluationResult> => {
+  const regorus = await regorusModulePromise;
+  const cacheKey = `${policyId}:${version}`;
+
+  let engine = cache.get(cacheKey);
+
+  if (!engine) {
+    engine = new regorus.Engine();
+    engine.addPolicy("policy.rego", regoSource);
+    validatePackage(engine);
+    cache.set(cacheKey, engine);
+  }
+
+  engine.setInputJson(JSON.stringify(context));
+
+  const allowValue = extractAllowValue(engine);
+  const denyMessages = extractDenyMessages(engine);
+  const evidenceRequirement = extractEvidenceRequirement(engine);
+
+  return buildDecision(allowValue, denyMessages, evidenceRequirement);
 };
