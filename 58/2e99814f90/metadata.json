@@ -1,0 +1,53 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "582e99814f90",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "docs/adrs/ADR-087-regorus-wasm-over-opa-sidecar.md",
+    "docs/adrs/ADR-088-vendored-wasm-over-npm-for-regorus.md",
+    "docs/feature/regorus-policy-eval/deliver/execution-log.json",
+    "docs/feature/regorus-policy-eval/deliver/roadmap.json",
+    "docs/feature/regorus-policy-eval/design/architecture-design.md",
+    "docs/feature/regorus-policy-eval/design/component-boundaries.md",
+    "docs/feature/regorus-policy-eval/design/data-models.md",
+    "docs/feature/regorus-policy-eval/design/technology-stack.md",
+    "docs/feature/regorus-policy-eval/design/wave-decisions.md",
+    "docs/feature/regorus-policy-eval/discuss/acceptance-criteria.md",
+    "docs/feature/regorus-policy-eval/discuss/dor-checklist.md",
+    "docs/feature/regorus-policy-eval/discuss/journey-policy-authoring-visual.md",
+    "docs/feature/regorus-policy-eval/discuss/journey-policy-authoring.feature",
+    "docs/feature/regorus-policy-eval/discuss/journey-policy-authoring.yaml",
+    "docs/feature/regorus-policy-eval/discuss/outcome-kpis.md",
+    "docs/feature/regorus-policy-eval/discuss/prioritization.md",
+    "docs/feature/regorus-policy-eval/discuss/requirements.md",
+    "docs/feature/regorus-policy-eval/discuss/shared-artifacts-registry.md",
+    "docs/feature/regorus-policy-eval/discuss/story-map.md",
+    "docs/feature/regorus-policy-eval/discuss/user-stories.md",
+    "docs/feature/regorus-policy-eval/discuss/wave-decisions.md",
+    "docs/feature/regorus-policy-eval/distill/acceptance-review.md",
+    "docs/feature/regorus-policy-eval/distill/test-scenarios.md",
+    "docs/feature/regorus-policy-eval/distill/walking-skeleton.md",
+    "docs/feature/regorus-policy-eval/distill/wave-decisions.md",
+    "docs/research/rego-playground-editor-analysis.md",
+    "docs/research/regorus-wasm-javascript-integration.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/58/2e99814f90/0/metadata.json",
+      "transcript": "/58/2e99814f90/0/full.jsonl",
+      "context": "/58/2e99814f90/0/context.md",
+      "content_hash": "/58/2e99814f90/0/content_hash.txt",
+      "prompt": "/58/2e99814f90/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 3141,
+    "cache_creation_tokens": 86093,
+    "cache_read_tokens": 640585,
+    "output_tokens": 8637,
+    "api_call_count": 10
+  }
+}
