@@ -5,7 +5,7 @@ import type { ServerDependencies } from "../runtime/types";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import { activatePolicy, buildVersionChain, createPolicy, deprecatePolicy, getPolicyById, getPolicyEdges, getVersionChain, listWorkspacePolicies } from "./policy-queries";
 import { validatePolicyCreateBody } from "./policy-validation";
-import type { PolicyRecord, PolicyRule, PolicySelector, PolicyStatus } from "./types";
+import type { PolicyRecord, PolicySelector, PolicyStatus } from "./types";
 import { log } from "../telemetry/logger";
 
 // ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ async function handlePolicyDetail(
         version: policy.version,
         status: policy.status,
         selector: policy.selector ?? {},
-        rules: policy.rules ?? [],
+        rego_source: policy.rego_source ?? "",
         human_veto_required: policy.human_veto_required ?? false,
         ...(policy.max_ttl ? { max_ttl: policy.max_ttl } : {}),
         ...(policy.supersedes ? { supersedes: policy.supersedes.id as string } : {}),
@@ -234,7 +234,7 @@ async function handleCreatePolicy(
     return jsonError("invalid JSON body", 400);
   }
 
-  const validation = validatePolicyCreateBody(body as { title: unknown; description: unknown; rules: unknown });
+  const validation = validatePolicyCreateBody(body as { title: unknown; description: unknown; rego_source: unknown });
   if (!validation.valid) {
     return jsonError(validation.errors[0], 400);
   }
@@ -246,7 +246,7 @@ async function handleCreatePolicy(
       title: parsed.title as string,
       description: parsed.description as string,
       selector: parsed.selector as PolicySelector | undefined,
-      rules: parsed.rules as PolicyRule[],
+      rego_source: parsed.rego_source as string,
       human_veto_required: parsed.human_veto_required as boolean | undefined,
       max_ttl: parsed.max_ttl as string | undefined,
       createdBy: guardResult.identityRecord,
@@ -392,7 +392,7 @@ async function handleCreatePolicyVersion(
       title: string;
       description: string;
       selector: PolicySelector;
-      rules: PolicyRule[];
+      rego_source: string;
       human_veto_required: boolean;
       max_ttl: string;
     }> = {};
@@ -403,12 +403,12 @@ async function handleCreatePolicyVersion(
       // No body or invalid JSON — use source values only.
     }
 
-    // When overrides include rules, validate them through the same path as create.
-    if (overrides.rules !== undefined) {
+    // When overrides include rego_source, validate through the same path as create.
+    if (overrides.rego_source !== undefined) {
       const validation = validatePolicyCreateBody({
         title: overrides.title ?? sourcePolicy.title,
         description: overrides.description ?? sourcePolicy.description ?? "",
-        rules: overrides.rules,
+        rego_source: overrides.rego_source,
       });
       if (!validation.valid) {
         return jsonError(validation.errors[0], 400);
@@ -420,7 +420,7 @@ async function handleCreatePolicyVersion(
       title: overrides.title ?? sourcePolicy.title,
       description: overrides.description ?? sourcePolicy.description,
       selector: overrides.selector ?? sourcePolicy.selector,
-      rules: overrides.rules ?? sourcePolicy.rules,
+      rego_source: overrides.rego_source ?? sourcePolicy.rego_source,
       human_veto_required: overrides.human_veto_required ?? sourcePolicy.human_veto_required,
       max_ttl: overrides.max_ttl ?? sourcePolicy.max_ttl,
       createdBy: guardResult.identityRecord,

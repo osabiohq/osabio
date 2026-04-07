@@ -53,12 +53,12 @@ describe("Walking Skeleton: Policy deny rule blocks intent before LLM tier", () 
     // And an active policy that denies deploy actions
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Block Production Deploys",
-      rules: [{
-        id: "no_deploy",
-        condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.action_spec.action == "deploy"
+  msg := "Production deploys require approval"
+}`,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -90,15 +90,15 @@ describe("Walking Skeleton: Policy deny rule blocks intent before LLM tier", () 
     await simulatePolicyGateResult(surreal, intentId, {
       decision: "REJECT",
       risk_score: 0,
-      reason: "Policy deny rule 'no_deploy' matched: action_spec.action == deploy",
+      reason: "Rego policy denied: Production deploys require approval",
       policy_only: true,
       policy_trace: [{
         policy_id: policyId,
         policy_version: 1,
-        rule_id: "no_deploy",
+        rule_id: policyId,
         effect: "deny",
         matched: true,
-        priority: 100,
+        priority: 0,
       }],
     }, "vetoed");
 
@@ -117,7 +117,7 @@ describe("Walking Skeleton: Policy deny rule blocks intent before LLM tier", () 
     const trace = (record.evaluation as Record<string, unknown>)?.policy_trace as PolicyTraceEntry[];
     expect(trace).toBeDefined();
     expect(trace).toHaveLength(1);
-    expect(trace[0].rule_id).toBe("no_deploy");
+    expect(trace[0].rule_id).toBe(policyId);
     expect(trace[0].matched).toBe(true);
     expect(trace[0].effect).toBe("deny");
   }, 120_000);
