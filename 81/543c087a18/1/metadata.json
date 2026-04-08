@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "81543c087a18",
+  "session_id": "986d7c5f-279d-4962-ba69-7d0e103bc6a7",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T07:34:02.544332Z",
+  "branch": "marcus-sa/http-proxy-policy",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/research/http-proxy-governance/tls-mitm-proxy-libraries.md",
+    ".nwave/des-config.json",
+    "docs/feature/http-proxy-governance/discover/interview-log.md",
+    "docs/feature/http-proxy-governance/discover/lean-canvas.md",
+    "docs/feature/http-proxy-governance/discover/opportunity-tree.md",
+    "docs/feature/http-proxy-governance/discover/problem-validation.md",
+    "docs/feature/http-proxy-governance/discover/solution-testing.md",
+    "docs/feature/http-proxy-governance/discover/wave-decisions.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "5bcc9daedfbc",
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 38834,
+    "cache_read_tokens": 165901,
+    "output_tokens": 740,
+    "api_call_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T07:34:02.531549Z",
+    "agent_lines": 751,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 751,
+    "agent_percentage": 100
+  }
+}
