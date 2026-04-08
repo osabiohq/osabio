@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "0e91d3e752ec",
+  "session_id": "62093f64-5f53-45c7-acc6-099bb0ada047",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T05:35:18.817886Z",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/policy/rego-evaluator.ts",
+    "app/src/server/proxy/policy-evaluator.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-policy.test.ts",
+    "tests/unit/proxy-policy-evaluator.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "c75a44a69aed",
+  "token_usage": {
+    "input_tokens": 2636,
+    "cache_creation_tokens": 250043,
+    "cache_read_tokens": 6944344,
+    "output_tokens": 55585,
+    "api_call_count": 69
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T05:35:18.367291Z",
+    "agent_lines": 63,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 63,
+    "agent_percentage": 100
+  }
+}

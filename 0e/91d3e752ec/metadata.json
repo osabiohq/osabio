@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "0e91d3e752ec",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/server/policy/rego-evaluator.ts",
+    "app/src/server/proxy/policy-evaluator.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-policy.test.ts",
+    "tests/unit/proxy-policy-evaluator.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0e/91d3e752ec/0/metadata.json",
+      "transcript": "/0e/91d3e752ec/0/full.jsonl",
+      "context": "/0e/91d3e752ec/0/context.md",
+      "content_hash": "/0e/91d3e752ec/0/content_hash.txt",
+      "prompt": "/0e/91d3e752ec/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2636,
+    "cache_creation_tokens": 250043,
+    "cache_read_tokens": 6944344,
+    "output_tokens": 55585,
+    "api_call_count": 69
+  }
+}
