@@ -4,7 +4,7 @@
 
 BEGIN TRANSACTION;
 
-REMOVE FIELD scoring_mode ON behavior_definition;
+REMOVE FIELD IF EXISTS scoring_mode ON behavior_definition;
 UPDATE behavior_definition UNSET scoring_mode;
 
 COMMIT TRANSACTION;

@@ -29,7 +29,7 @@ import {
   createPolicyVersionViaApi,
   getPolicyDetail,
   buildPolicyBody,
-  buildMinimalRule,
+  DEFAULT_REGO_SOURCE,
   linkUserToIdentity,
   type PolicyListResponse,
 } from "./policy-crud-test-kit";
@@ -82,7 +82,7 @@ describe("Milestone 1: Agent Authorization Gate (US-PCUI-08)", () => {
     const adminId = await createTestIdentity(surreal, "admin", "human", workspace.workspaceId);
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Draft Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     const agentId = await createTestIdentity(surreal, "coding-agent", "agent", workspace.workspaceId);
     await linkUserToIdentity(baseUrl, surreal, user, agentId);
@@ -112,7 +112,7 @@ describe("Milestone 1: Agent Authorization Gate (US-PCUI-08)", () => {
     const adminId = await createTestIdentity(surreal, "admin", "human", workspace.workspaceId);
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Active Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "read" }, effect: "allow", priority: 10 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
     const agentId = await createTestIdentity(surreal, "coding-agent", "agent", workspace.workspaceId);
@@ -143,7 +143,7 @@ describe("Milestone 1: Agent Authorization Gate (US-PCUI-08)", () => {
     const adminId = await createTestIdentity(surreal, "admin", "human", workspace.workspaceId);
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Active Policy for Version",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
     const agentId = await createTestIdentity(surreal, "coding-agent", "agent", workspace.workspaceId);
@@ -174,7 +174,7 @@ describe("Milestone 1: Agent Authorization Gate (US-PCUI-08)", () => {
     const adminId = await createTestIdentity(surreal, "admin", "human", workspace.workspaceId);
     await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Readable Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "read" }, effect: "allow", priority: 10 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     const agentId = await createTestIdentity(surreal, "coding-agent", "agent", workspace.workspaceId);
     await linkUserToIdentity(baseUrl, surreal, user, agentId);
@@ -201,7 +201,7 @@ describe("Milestone 1: Agent Authorization Gate (US-PCUI-08)", () => {
     const adminId = await createTestIdentity(surreal, "admin", "human", workspace.workspaceId);
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Detail Readable Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     const agentId = await createTestIdentity(surreal, "coding-agent", "agent", workspace.workspaceId);
     await linkUserToIdentity(baseUrl, surreal, user, agentId);
@@ -234,12 +234,12 @@ describe("Milestone 1: Policy List View (US-PCUI-01)", () => {
 
     const { policyId: draftId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Draft Budget Guard",
-      rules: [{ id: "r1", condition: { field: "budget_limit.amount", operator: "gt", value: 500 }, effect: "deny", priority: 50 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
 
     const { policyId: activeId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Active Deploy Guard",
-      rules: [{ id: "r2", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, activeId, adminId, workspace.workspaceId);
 
@@ -279,12 +279,12 @@ describe("Milestone 1: Policy List View (US-PCUI-01)", () => {
 
     await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Draft Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "read" }, effect: "allow", priority: 10 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
 
     const { policyId: activeId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Active Policy",
-      rules: [{ id: "r2", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, activeId, adminId, workspace.workspaceId);
 
@@ -333,7 +333,7 @@ describe("Milestone 1: Policy List View (US-PCUI-01)", () => {
 
     await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Draft Only",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "read" }, effect: "allow", priority: 10 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
 
     // When admin filters by deprecated status

@@ -8,6 +8,8 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useWorkspaceState } from "../../stores/workspace-state";
 import type { PolicyStatus } from "../../hooks/use-policies";
 import { VersionDiffView } from "./VersionDiffView";
+import { RegoEditor } from "./RegoEditor";
+import { PolicyTestPanel } from "./PolicyTestPanel";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
@@ -25,7 +27,7 @@ type PolicySelector = { workspace?: string; agent_role?: string; resource?: stri
 
 type PolicyDetail = {
   id: string; title: string; description?: string; version: number; status: PolicyStatus;
-  selector: PolicySelector; rules: PolicyRule[]; human_veto_required: boolean; max_ttl?: string;
+  selector: PolicySelector; rules: PolicyRule[]; rego_source?: string; human_veto_required: boolean; max_ttl?: string;
   supersedes?: string; created_at: string; updated_at?: string;
 };
 
@@ -140,6 +142,15 @@ function RulesSection({ rules }: { rules: PolicyRule[] }) {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function RegoSourceSection({ regoSource }: { regoSource: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold text-foreground">Rego Source</h3>
+      <RegoEditor value={regoSource} onChange={() => undefined} readOnly />
     </div>
   );
 }
@@ -375,11 +386,22 @@ export function PolicyDetailPage() {
 
           <PolicyMetadata policy={data.policy} />
           <Separator />
-          <RulesSection rules={data.policy.rules} />
-          <Separator />
+          {data.policy.rego_source ? (
+            <>
+              <RegoSourceSection regoSource={data.policy.rego_source} />
+              <Separator />
+            </>
+          ) : (
+            <>
+              <RulesSection rules={data.policy.rules} />
+              <Separator />
+            </>
+          )}
           <GovernanceEdgesSection edges={data.edges} />
           <Separator />
           <VersionHistorySection versionChain={data.version_chain} currentPolicyId={data.policy.id} onCompare={handleCompareVersions} />
+          <Separator />
+          {workspaceId && <PolicyTestPanel policyId={data.policy.id} workspaceId={workspaceId} />}
 
           {isDiffLoading && <p className="text-sm text-muted-foreground">Loading diff...</p>}
           {diffPair && <VersionDiffView oldPolicy={diffPair.oldPolicy} newPolicy={diffPair.newPolicy} onClose={() => setDiffPair(undefined)} />}

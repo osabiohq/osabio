@@ -1,40 +1,8 @@
 import type { RecordId } from "surrealdb";
 
 // ---------------------------------------------------------------------------
-// Rule Predicates & Conditions
-// ---------------------------------------------------------------------------
-
-export type RulePredicate = {
-  field: string;
-  operator:
-    | "eq"
-    | "neq"
-    | "lt"
-    | "lte"
-    | "gt"
-    | "gte"
-    | "in"
-    | "not_in"
-    | "exists";
-  value: string | number | boolean | string[];
-};
-
-export type RuleCondition = RulePredicate | RulePredicate[];
-
-// ---------------------------------------------------------------------------
 // Policy Domain Types
 // ---------------------------------------------------------------------------
-
-export type PolicyRule = {
-  id: string;
-  condition: RuleCondition;
-  effect: "allow" | "deny" | "evidence_requirement";
-  priority: number;
-  /** Minimum evidence count required (only for evidence_requirement rules) */
-  min_evidence_count?: number;
-  /** Required evidence entity types (only for evidence_requirement rules) */
-  required_types?: string[];
-};
 
 export type PolicySelector = {
   workspace?: string;
@@ -56,7 +24,7 @@ export type PolicyRecord = {
   version: number;
   status: PolicyStatus;
   selector: PolicySelector;
-  rules: PolicyRule[];
+  rego_source: string;
   human_veto_required: boolean;
   max_ttl?: string;
   created_by: RecordId<"identity">;
@@ -73,6 +41,7 @@ export type PolicyRecord = {
 export type PolicyTraceEntry = {
   policy_id: string;
   policy_version: number;
+  /** For Rego policies: contains policy ID. Field name kept for trace format compatibility. */
   rule_id: string;
   effect: "allow" | "deny" | "evidence_requirement";
   matched: boolean;

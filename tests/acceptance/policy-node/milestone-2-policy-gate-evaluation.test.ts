@@ -3,9 +3,9 @@
  *
  * Traces: US-4, US-5, US-6, US-9
  *
- * Validates policy loading via graph traversal, rule evaluation with
- * priority-sorted deny short-circuit, human veto override, and
- * backward compatibility with empty policy sets.
+ * Validates policy loading via graph traversal, Rego-based rule evaluation with
+ * priority-sorted deny short-circuit, fail-closed behaviour, evidence_requirement
+ * output, human veto override, and backward compatibility with empty policy sets.
  *
  * Driving ports:
  *   Direct DB for policy graph setup
@@ -47,24 +47,23 @@ describe("Milestone 2: Policy Gate Graph Traversal (US-4)", () => {
 
     const { policyId: p1 } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Identity-Linked Budget Policy",
-      rules: [{
-        id: "budget_check",
-        condition: { field: "budget_limit.amount", operator: "lte", value: 1000 },
-        effect: "allow",
-        priority: 10,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.budget_limit.amount <= 1000
+}`,
     });
     await activatePolicy(surreal, p1, adminId, workspace.workspaceId);
 
     const admin2Id = await createTestIdentity(surreal, "admin-2", "human", workspace.workspaceId);
     const { policyId: p2 } = await createPolicy(surreal, workspace.workspaceId, admin2Id, {
       title: "Workspace-Linked Deploy Block",
-      rules: [{
-        id: "no_deploy",
-        condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.action_spec.action == "deploy"
+  msg := "Production deploys require approval"
+}`,
     });
     await activatePolicy(surreal, p2, admin2Id, workspace.workspaceId);
 
@@ -92,23 +91,22 @@ describe("Milestone 2: Policy Gate Graph Traversal (US-4)", () => {
 
     const { policyId: activeId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Active Policy",
-      rules: [{
-        id: "active_rule",
-        condition: { field: "action_spec.action", operator: "eq", value: "read" },
-        effect: "allow",
-        priority: 5,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.action_spec.action == "read"
+}`,
     });
     await activatePolicy(surreal, activeId, adminId, workspace.workspaceId);
 
     const { policyId: deprecatedId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Deprecated Policy",
-      rules: [{
-        id: "old_rule",
-        condition: { field: "action_spec.action", operator: "eq", value: "write" },
-        effect: "deny",
-        priority: 50,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.action_spec.action == "write"
+  msg := "writes not allowed"
+}`,
     });
     await activatePolicy(surreal, deprecatedId, adminId, workspace.workspaceId);
     await deprecatePolicy(surreal, deprecatedId);
@@ -139,23 +137,22 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
 
     const { policyId: denyPolicyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Block Deploy",
-      rules: [{
-        id: "block_deploy",
-        condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.action_spec.action == "deploy"
+  msg := "Production deploys require approval"
+}`,
     });
     await activatePolicy(surreal, denyPolicyId, adminId, workspace.workspaceId);
 
     const { policyId: allowPolicyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
-      title: "Allow Read",
-      rules: [{
-        id: "allow_read",
-        condition: { field: "action_spec.action", operator: "eq", value: "read" },
-        effect: "allow",
-        priority: 10,
-      }],
+      title: "Allow File Edits",
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.action_spec.action == "edit_file"
+}`,
     });
     await activatePolicy(surreal, allowPolicyId, adminId, workspace.workspaceId);
 
@@ -167,23 +164,24 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
     });
     await submitIntent(surreal, intentId);
 
-    // Then the deny rule matches first and short-circuits
+    // Then the deny policy matches first and short-circuits
+    // rule_id = policy record ID (per Rego policy trace format)
     const trace: PolicyTraceEntry[] = [
       {
         policy_id: denyPolicyId,
         policy_version: 1,
-        rule_id: "block_deploy",
+        rule_id: `policy:${denyPolicyId}`,
         effect: "deny",
         matched: true,
         priority: 100,
       },
-      // allow_read never evaluated due to short-circuit
+      // allow policy never evaluated due to short-circuit
     ];
 
     await simulatePolicyGateResult(surreal, intentId, {
       decision: "REJECT",
       risk_score: 0,
-      reason: "Policy deny rule 'block_deploy' matched",
+      reason: "Policy deny rule matched: Production deploys require approval",
       policy_only: true,
       policy_trace: trace,
     }, "vetoed");
@@ -210,12 +208,11 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Allow File Edits",
-      rules: [{
-        id: "allow_edit",
-        condition: { field: "action_spec.action", operator: "eq", value: "edit_file" },
-        effect: "allow",
-        priority: 10,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.action_spec.action == "edit_file"
+}`,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -227,6 +224,7 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
     await submitIntent(surreal, intentId);
 
     // Then the allow rule matches and policy gate passes (continues to LLM tier)
+    // rule_id = policy record ID for Rego policies
     await simulatePolicyGateResult(surreal, intentId, {
       decision: "APPROVE",
       risk_score: 5,
@@ -235,7 +233,7 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
       policy_trace: [{
         policy_id: policyId,
         policy_version: 1,
-        rule_id: "allow_edit",
+        rule_id: `policy:${policyId}`,
         effect: "allow",
         matched: true,
         priority: 10,
@@ -261,12 +259,12 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
     // Given a policy that only targets "deploy" actions
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Deploy Guard",
-      rules: [{
-        id: "block_deploy",
-        condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.action_spec.action == "deploy"
+  msg := "deploy blocked"
+}`,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -279,6 +277,7 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
     await submitIntent(surreal, intentId);
 
     // Then no rule matches, so the policy gate passes
+    // rule_id = policy record ID; matched = false because deny set was empty for this action
     await simulatePolicyGateResult(surreal, intentId, {
       decision: "APPROVE",
       risk_score: 10,
@@ -287,7 +286,7 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
       policy_trace: [{
         policy_id: policyId,
         policy_version: 1,
-        rule_id: "block_deploy",
+        rule_id: `policy:${policyId}`,
         effect: "deny",
         matched: false,
         priority: 100,
@@ -296,6 +295,128 @@ describe("Milestone 2: Rule Evaluation Engine (US-5)", () => {
 
     const status = await getIntentStatus(surreal, intentId);
     expect(status).toBe("authorized");
+  }, 120_000);
+
+  // ---------------------------------------------------------------------------
+  // US-5: Fail-closed — Rego produces neither allow nor deny
+  // When allow=false and deny set is empty, gate denies (fail-closed)
+  // ---------------------------------------------------------------------------
+  it("intent is denied when Rego policy produces neither allow nor deny (fail-closed)", async () => {
+    const { baseUrl, surreal } = getRuntime();
+
+    const user = await createTestUser(baseUrl, "m2-fail-closed");
+    const workspace = await createTestWorkspace(baseUrl, user);
+    const adminId = await createTestIdentity(surreal, "admin-1", "human", workspace.workspaceId);
+    const agentId = await createTestIdentity(surreal, "coding-agent", "agent", workspace.workspaceId);
+
+    // Given a policy that only has rules for "deploy" — no rules for "query"
+    // When action is "query": deny set is empty AND allow is false → fail-closed deny
+    const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
+      title: "Deploy-Only Guard",
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.action_spec.action == "deploy"
+  msg := "deploy blocked"
+}`,
+    });
+    await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
+
+    // When the agent submits a "query" intent (no matching rule)
+    const { intentId } = await createDraftIntent(surreal, workspace.workspaceId, agentId, {
+      goal: "Query compliance audit log",
+      reasoning: "Need to review recent policy decisions",
+      action_spec: { provider: "audit", action: "query", params: {} },
+    });
+    await submitIntent(surreal, intentId);
+
+    // Then fail-closed: no allow produced AND no explicit deny → deny with "policy produced no decision"
+    await simulatePolicyGateResult(surreal, intentId, {
+      decision: "REJECT",
+      risk_score: 0,
+      reason: "policy produced no decision",
+      policy_only: true,
+      policy_trace: [{
+        policy_id: policyId,
+        policy_version: 1,
+        rule_id: `policy:${policyId}`,
+        effect: "deny",
+        matched: false,
+        priority: 100,
+      }],
+    }, "vetoed");
+
+    const status = await getIntentStatus(surreal, intentId);
+    expect(status).toBe("vetoed");
+
+    const evaluation = await getIntentEvaluation(surreal, intentId);
+    expect(evaluation!.decision).toBe("REJECT");
+    expect(evaluation!.reason).toContain("policy produced no decision");
+  }, 120_000);
+
+  // ---------------------------------------------------------------------------
+  // US-5: Evidence requirement output from Rego policy
+  // When Rego outputs evidence_requirement object, it surfaces in PolicyGateResult
+  // ---------------------------------------------------------------------------
+  it("Rego policy evidence_requirement output is included in the policy gate result", async () => {
+    const { baseUrl, surreal } = getRuntime();
+
+    const user = await createTestUser(baseUrl, "m2-evidence-req");
+    const workspace = await createTestWorkspace(baseUrl, user);
+    const adminId = await createTestIdentity(surreal, "admin-1", "human", workspace.workspaceId);
+    const agentId = await createTestIdentity(surreal, "coding-agent", "agent", workspace.workspaceId);
+
+    // Given a policy that requires evidence for production deploys
+    const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
+      title: "Production Deploy Evidence Gate",
+      rego_source: `package osabio.policy
+default allow := false
+allow if { true }
+evidence_requirement := {
+  "min_count": 2,
+  "required_types": ["decision", "task"]
+} if {
+  input.action_spec.action == "deploy_production"
+}`,
+    });
+    await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
+
+    // When the agent submits a production deploy intent
+    const { intentId } = await createDraftIntent(surreal, workspace.workspaceId, agentId, {
+      goal: "Deploy customer billing update to production",
+      reasoning: "Critical fix for invoice calculation error",
+      action_spec: { provider: "deploy", action: "deploy_production", params: {} },
+    });
+    await submitIntent(surreal, intentId);
+
+    // Then the gate result includes the evidence_requirement from Rego output
+    const evidenceRequirement = {
+      min_count: 2,
+      required_types: ["decision", "task"],
+    };
+
+    await simulatePolicyGateResult(surreal, intentId, {
+      decision: "APPROVE",
+      risk_score: 30,
+      reason: "Policy allows but evidence is required",
+      policy_only: false,
+      policy_trace: [{
+        policy_id: policyId,
+        policy_version: 1,
+        rule_id: `policy:${policyId}`,
+        effect: "allow",
+        matched: true,
+        priority: 10,
+      }],
+      evidence_requirement: evidenceRequirement,
+    }, "authorized");
+
+    const record = await getIntentRecord(surreal, intentId);
+    const evaluation = record.evaluation as Record<string, unknown>;
+    expect(evaluation.evidence_requirement).toBeDefined();
+    const req = evaluation.evidence_requirement as Record<string, unknown>;
+    expect(req.min_count).toBe(2);
+    expect(req.required_types).toEqual(["decision", "task"]);
   }, 120_000);
 });
 
@@ -315,12 +436,11 @@ describe("Milestone 2: Human Veto Gate Override (US-6)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Require Human Approval for All Financial Actions",
-      rules: [{
-        id: "financial_check",
-        condition: { field: "action_spec.action", operator: "eq", value: "pay" },
-        effect: "allow",
-        priority: 10,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.action_spec.action == "pay"
+}`,
       human_veto_required: true,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
@@ -343,7 +463,7 @@ describe("Milestone 2: Human Veto Gate Override (US-6)", () => {
       policy_trace: [{
         policy_id: policyId,
         policy_version: 1,
-        rule_id: "financial_check",
+        rule_id: `policy:${policyId}`,
         effect: "allow",
         matched: true,
         priority: 10,

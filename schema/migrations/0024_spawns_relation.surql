@@ -8,6 +8,6 @@ DEFINE TABLE OVERWRITE spawns TYPE RELATION IN message OUT trace SCHEMAFULL;
 BEGIN TRANSACTION;
 
 -- Remove embedded subagent_traces fields from message table
-REMOVE FIELD subagent_traces ON message;
+REMOVE FIELD IF EXISTS subagent_traces ON message;
 
 COMMIT TRANSACTION;

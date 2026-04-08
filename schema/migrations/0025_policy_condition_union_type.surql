@@ -2,6 +2,6 @@
 -- FR-1a: RuleCondition = RulePredicate | RulePredicate[] (AND-joined)
 
 DEFINE FIELD OVERWRITE rules[*].condition ON policy TYPE object | array FLEXIBLE;
-DEFINE FIELD rules[*].condition[*].field ON policy TYPE string;
-DEFINE FIELD rules[*].condition[*].operator ON policy TYPE string;
-DEFINE FIELD rules[*].condition[*].value ON policy TYPE string | number | bool | array | object FLEXIBLE;
+DEFINE FIELD OVERWRITE rules[*].condition[*].field ON policy TYPE string;
+DEFINE FIELD OVERWRITE rules[*].condition[*].operator ON policy TYPE string;
+DEFINE FIELD OVERWRITE rules[*].condition[*].value ON policy TYPE string | number | bool | array | object FLEXIBLE;

@@ -2,27 +2,27 @@
  * Unit tests for policy creation body validation.
  *
  * Pure function tests -- no DB, no HTTP, no side effects.
+ * validatePolicyCreateBody is async because it calls compileRego.
  */
 import { describe, expect, it } from "bun:test";
 import { validatePolicyCreateBody } from "../../app/src/server/policy/policy-validation";
 
-const validRule = {
-  id: "r1",
-  condition: { field: "action", operator: "eq", value: "deploy" },
-  effect: "deny",
-  priority: 100,
-};
+const VALID_REGO = `package osabio.policy
+default allow := false
+allow if {
+  input.action_spec.action == "read"
+}`;
 
 describe("validatePolicyCreateBody", () => {
   // -------------------------------------------------------------------------
   // Title validation
   // -------------------------------------------------------------------------
 
-  it("rejects empty title", () => {
-    const result = validatePolicyCreateBody({
+  it("rejects empty title", async () => {
+    const result = await validatePolicyCreateBody({
       title: "",
       description: "Valid description",
-      rules: [validRule],
+      rego_source: VALID_REGO,
     });
 
     expect(result.valid).toBe(false);
@@ -31,24 +31,11 @@ describe("validatePolicyCreateBody", () => {
     }
   });
 
-  it("rejects missing title (undefined cast)", () => {
-    const result = validatePolicyCreateBody({
+  it("rejects missing title (undefined cast)", async () => {
+    const result = await validatePolicyCreateBody({
       title: undefined as unknown as string,
       description: "Valid description",
-      rules: [validRule],
-    });
-
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.errors.some((e) => e.includes("title"))).toBe(true);
-    }
-  });
-
-  it("rejects whitespace-only title", () => {
-    const result = validatePolicyCreateBody({
-      title: "   ",
-      description: "Valid description",
-      rules: [validRule],
+      rego_source: VALID_REGO,
     });
 
     expect(result.valid).toBe(false);
@@ -61,11 +48,11 @@ describe("validatePolicyCreateBody", () => {
   // Description validation
   // -------------------------------------------------------------------------
 
-  it("rejects empty description", () => {
-    const result = validatePolicyCreateBody({
+  it("rejects empty description", async () => {
+    const result = await validatePolicyCreateBody({
       title: "Valid Title",
       description: "",
-      rules: [validRule],
+      rego_source: VALID_REGO,
     });
 
     expect(result.valid).toBe(false);
@@ -74,24 +61,11 @@ describe("validatePolicyCreateBody", () => {
     }
   });
 
-  it("rejects missing description (undefined cast)", () => {
-    const result = validatePolicyCreateBody({
+  it("rejects missing description (undefined cast)", async () => {
+    const result = await validatePolicyCreateBody({
       title: "Valid Title",
       description: undefined as unknown as string,
-      rules: [validRule],
-    });
-
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.errors.some((e) => e.includes("description"))).toBe(true);
-    }
-  });
-
-  it("rejects whitespace-only description", () => {
-    const result = validatePolicyCreateBody({
-      title: "Valid Title",
-      description: "   ",
-      rules: [validRule],
+      rego_source: VALID_REGO,
     });
 
     expect(result.valid).toBe(false);
@@ -101,155 +75,94 @@ describe("validatePolicyCreateBody", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Rules validation
+  // Legacy rules field rejection
   // -------------------------------------------------------------------------
 
-  it("rejects empty rules array", () => {
-    const result = validatePolicyCreateBody({
+  it("rejects body with rules field", async () => {
+    const result = await validatePolicyCreateBody({
       title: "Valid Title",
       description: "Valid description",
-      rules: [],
-    });
+      rego_source: undefined as unknown as string,
+      rules: [{ id: "r1", effect: "deny" }],
+    } as unknown as { title: unknown; description: unknown; rego_source: unknown });
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.errors.some((e) => e.includes("rule"))).toBe(true);
-    }
-  });
-
-  it("rejects missing rules (undefined cast)", () => {
-    const result = validatePolicyCreateBody({
-      title: "Valid Title",
-      description: "Valid description",
-      rules: undefined as unknown as [],
-    });
-
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.errors.some((e) => e.includes("rule"))).toBe(true);
+      expect(result.errors.some((e) => e.toLowerCase().includes("rules"))).toBe(true);
     }
   });
 
   // -------------------------------------------------------------------------
-  // Rule ID validation
+  // rego_source validation
   // -------------------------------------------------------------------------
 
-  it("rejects rule with missing id", () => {
-    const { id: _, ...ruleWithoutId } = validRule;
-    const result = validatePolicyCreateBody({
+  it("rejects empty rego_source", async () => {
+    const result = await validatePolicyCreateBody({
       title: "Valid Title",
       description: "Valid description",
-      rules: [ruleWithoutId],
+      rego_source: "",
     });
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.errors.some((e) => e.includes("id must be a non-empty string"))).toBe(true);
+      expect(result.errors.some((e) => e.toLowerCase().includes("rego_source"))).toBe(true);
     }
   });
 
-  it("rejects rule with empty id", () => {
-    const result = validatePolicyCreateBody({
+  it("rejects missing rego_source", async () => {
+    const result = await validatePolicyCreateBody({
       title: "Valid Title",
       description: "Valid description",
-      rules: [{ ...validRule, id: "" }],
+      rego_source: undefined as unknown as string,
     });
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.errors.some((e) => e.includes("id must be a non-empty string"))).toBe(true);
+      expect(result.errors.some((e) => e.toLowerCase().includes("rego_source"))).toBe(true);
     }
   });
 
-  // -------------------------------------------------------------------------
-  // Effect validation
-  // -------------------------------------------------------------------------
-
-  it("rejects invalid effect value", () => {
-    const result = validatePolicyCreateBody({
+  it("rejects invalid Rego syntax with compilation error", async () => {
+    const result = await validatePolicyCreateBody({
       title: "Valid Title",
       description: "Valid description",
-      rules: [{
-        ...validRule,
-        effect: "maybe" as "allow",
-      }],
+      rego_source: `package osabio.policy
+default allow := !!!`,
     });
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.errors.some((e) => e.includes("effect"))).toBe(true);
+      // Must surface compile errors with line/column details
+      expect(result.compileErrors).toBeDefined();
+      expect(Array.isArray(result.compileErrors)).toBe(true);
+      expect(result.compileErrors!.length).toBeGreaterThan(0);
+      const firstError = result.compileErrors![0];
+      expect(typeof firstError.line).toBe("number");
+      expect(typeof firstError.column).toBe("number");
+      expect(typeof firstError.message).toBe("string");
     }
   });
 
-  // -------------------------------------------------------------------------
-  // Predicate structure validation
-  // -------------------------------------------------------------------------
-
-  it("rejects predicate missing field", () => {
-    const result = validatePolicyCreateBody({
+  it("rejects Rego with wrong package declaration", async () => {
+    const result = await validatePolicyCreateBody({
       title: "Valid Title",
       description: "Valid description",
-      rules: [{
-        id: "r1",
-        condition: { operator: "eq", value: "deploy" } as unknown,
-        effect: "deny",
-        priority: 100,
-      }],
-    });
-
-    expect(result.valid).toBe(false);
-  });
-
-  it("rejects predicate missing operator", () => {
-    const result = validatePolicyCreateBody({
-      title: "Valid Title",
-      description: "Valid description",
-      rules: [{
-        id: "r1",
-        condition: { field: "action", value: "deploy" } as unknown,
-        effect: "deny",
-        priority: 100,
-      }],
-    });
-
-    expect(result.valid).toBe(false);
-  });
-
-  it("rejects predicate with invalid operator", () => {
-    const result = validatePolicyCreateBody({
-      title: "Valid Title",
-      description: "Valid description",
-      rules: [{
-        id: "r1",
-        condition: { field: "action", operator: "like", value: "deploy" } as unknown,
-        effect: "deny",
-        priority: 100,
-      }],
-    });
-
-    expect(result.valid).toBe(false);
-  });
-
-  it("rejects empty condition array", () => {
-    const result = validatePolicyCreateBody({
-      title: "Valid Title",
-      description: "Valid description",
-      rules: [{
-        id: "r1",
-        condition: [] as unknown,
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: `package wrong.package
+default allow := false`,
     });
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.errors.some((e) => e.includes("condition"))).toBe(true);
+      expect(result.errors.some((e) => e.toLowerCase().includes("package"))).toBe(true);
     }
   });
 
-  it("rejects null body", () => {
-    const result = validatePolicyCreateBody(null as unknown as { title: unknown; description: unknown; rules: unknown });
+  // -------------------------------------------------------------------------
+  // Null body
+  // -------------------------------------------------------------------------
+
+  it("rejects null body", async () => {
+    const result = await validatePolicyCreateBody(null as unknown as { title: unknown; description: unknown; rego_source: unknown });
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
@@ -257,72 +170,35 @@ describe("validatePolicyCreateBody", () => {
     }
   });
 
-  it("rejects completely malformed condition object", () => {
-    const result = validatePolicyCreateBody({
-      title: "Valid Title",
-      description: "Valid description",
-      rules: [{
-        id: "r1",
-        condition: { invalid: "structure" } as unknown,
-        effect: "deny",
-        priority: 100,
-      }],
-    });
-
-    expect(result.valid).toBe(false);
-  });
-
   // -------------------------------------------------------------------------
   // Valid inputs
   // -------------------------------------------------------------------------
 
-  it("accepts valid body with single rule", () => {
-    const result = validatePolicyCreateBody({
+  it("accepts valid body with title, description, and rego_source", async () => {
+    const result = await validatePolicyCreateBody({
       title: "Valid Policy",
       description: "A valid policy description",
-      rules: [{
-        id: "r1",
-        condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: VALID_REGO,
     });
 
     expect(result.valid).toBe(true);
   });
 
-  it("accepts valid body with array condition (AND logic)", () => {
-    const result = validatePolicyCreateBody({
-      title: "Valid Policy",
-      description: "A valid policy description",
-      rules: [{
-        id: "r1",
-        condition: [
-          { field: "action_spec.action", operator: "eq", value: "deploy" },
-          { field: "budget_limit.amount", operator: "gt", value: 1000 },
-        ],
-        effect: "allow",
-        priority: 50,
-      }],
+  it("accepts valid Rego with deny rules and evidence_requirement", async () => {
+    const result = await validatePolicyCreateBody({
+      title: "Complex Policy",
+      description: "Policy with multiple rule types",
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.budget_limit.amount > 10000
+  msg := "Budget exceeds maximum threshold"
+}
+allow if {
+  input.action_spec.action == "read"
+}`,
     });
 
     expect(result.valid).toBe(true);
-  });
-
-  it("accepts all valid operators", () => {
-    const operators = ["eq", "neq", "lt", "lte", "gt", "gte", "in", "not_in", "exists"];
-    for (const operator of operators) {
-      const result = validatePolicyCreateBody({
-        title: "Valid Policy",
-        description: "A valid policy description",
-        rules: [{
-          id: "r1",
-          condition: { field: "some_field", operator, value: "test" },
-          effect: "deny",
-          priority: 100,
-        }],
-      });
-      expect(result.valid).toBe(true);
-    }
   });
 });

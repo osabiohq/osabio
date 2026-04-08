@@ -26,6 +26,7 @@ import {
   simulatePolicyGateResult,
   getIntentRecord,
   getPolicyDetail,
+  DEFAULT_REGO_SOURCE,
   type PolicyTraceEntry,
   type PolicyDetailResponse,
 } from "./policy-crud-test-kit";
@@ -53,12 +54,7 @@ describe("Milestone 6: Policy Trace on Intent Evaluation (US-PCUI-06)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Deploy Blocker",
-      rules: [{
-        id: "block_prod_deploy",
-        condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -117,23 +113,13 @@ describe("Milestone 6: Policy Trace on Intent Evaluation (US-PCUI-06)", () => {
 
     const { policyId: p1 } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Deploy Guard",
-      rules: [{
-        id: "block_deploy",
-        condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, p1, adminId, workspace.workspaceId);
 
     const { policyId: p2 } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Read Allowance",
-      rules: [{
-        id: "allow_read",
-        condition: { field: "action_spec.action", operator: "eq", value: "read" },
-        effect: "allow",
-        priority: 10,
-      }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, p2, adminId, workspace.workspaceId);
 
@@ -192,12 +178,7 @@ describe("Milestone 6: Policy Trace on Intent Evaluation (US-PCUI-06)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Linkable Policy",
-      rules: [{
-        id: "check_budget",
-        condition: { field: "budget_limit.amount", operator: "gt", value: 500 },
-        effect: "deny",
-        priority: 50,
-      }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -238,7 +219,6 @@ describe("Milestone 6: Policy Trace on Intent Evaluation (US-PCUI-06)", () => {
     expect(detailResponse.status).toBe(200);
     const detail = await detailResponse.json() as PolicyDetailResponse;
     expect(detail.policy.title).toBe("Linkable Policy");
-    expect(detail.policy.rules[0].id).toBe("check_budget");
   }, 120_000);
 
   // ---------------------------------------------------------------------------

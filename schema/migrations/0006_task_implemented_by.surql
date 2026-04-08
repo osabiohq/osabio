@@ -4,8 +4,8 @@
 BEGIN TRANSACTION;
 
 DEFINE TABLE OVERWRITE implemented_by TYPE RELATION IN decision | task OUT git_commit | pull_request SCHEMAFULL;
-DEFINE FIELD commit_sha ON implemented_by TYPE option<string>;
-DEFINE FIELD pr_url ON implemented_by TYPE option<string>;
-DEFINE FIELD linked_at ON implemented_by TYPE option<datetime>;
+DEFINE FIELD OVERWRITE commit_sha ON implemented_by TYPE option<string>;
+DEFINE FIELD OVERWRITE pr_url ON implemented_by TYPE option<string>;
+DEFINE FIELD OVERWRITE linked_at ON implemented_by TYPE option<datetime>;
 
 COMMIT TRANSACTION;

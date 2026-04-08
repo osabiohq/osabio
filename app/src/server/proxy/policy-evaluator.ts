@@ -20,6 +20,8 @@ import {
   type RateLimiterState,
   checkRateLimit,
 } from "./rate-limiter";
+import { evaluateRegoPolicy, createEngineCache } from "../policy/rego-evaluator";
+import type { IntentEvaluationContext } from "../policy/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,19 +63,13 @@ type RateLimitBody = {
   remediation: string;
 };
 
-type PolicyRuleRecord = {
-  id: string;
-  condition: { field: string; operator: string; value: unknown } | Array<{ field: string; operator: string; value: unknown }>;
-  effect: "allow" | "deny";
-  priority: number;
-};
-
 type ProxyPolicyRecord = {
   id: RecordId<"policy">;
   title: string;
   description?: string;
+  version: number;
   selector: { agent_role?: string };
-  rules: PolicyRuleRecord[];
+  rego_source: string;
   status: string;
 };
 
@@ -95,20 +91,18 @@ export type ProxyPolicyDependencies = {
 };
 
 // ---------------------------------------------------------------------------
-// Model Access Evaluation (pure)
+// Model Access Evaluation via Rego
 // ---------------------------------------------------------------------------
 
 type ModelCheckResult =
   | { allowed: true; policyIds: string[] }
-  | { allowed: false; policyRef: string; policyDescription: string; allowedModels: string[] };
+  | { allowed: false; policyRef: string; policyDescription: string };
 
-function evaluateModelAccess(
+async function evaluateModelAccess(
   policies: ProxyPolicyRecord[],
   context: ProxyPolicyContext,
-): ModelCheckResult {
-  // Filter policies relevant to this agent_type via selector.agent_role
+): Promise<ModelCheckResult> {
   if (!context.agentType) {
-    // No agent type: policies exist but cannot be matched — allow with warning
     log.warn("proxy.policy.missing_agent_type", "Request lacks agent type; model access policies not enforced", {
       model: context.model,
       workspace_id: context.workspaceId,
@@ -121,34 +115,37 @@ function evaluateModelAccess(
   );
 
   if (relevantPolicies.length === 0) {
-    // No agent-specific policies; collect all policy IDs for audit
     return { allowed: true, policyIds: policies.map((p) => p.id.id as string) };
   }
 
-  // Check each relevant policy's rules for model access deny
-  for (const policy of relevantPolicies) {
-    for (const rule of policy.rules) {
-      const conditions = Array.isArray(rule.condition) ? rule.condition : [rule.condition];
+  // Evaluate each relevant policy via Rego. Input exposes model and agent_role
+  // under action_spec.params so Rego policies use consistent field paths.
+  const proxyInput = {
+    goal: "proxy_model_access",
+    reasoning: "proxy model access policy check",
+    priority: 0,
+    action_spec: { provider: "llm", action: "invoke", params: { model: context.model } },
+    requester_type: "agent",
+    requester_role: context.agentType,
+  } as IntentEvaluationContext;
 
-      for (const cond of conditions) {
-        // Match deny rules where the model is not in the allowed list
-        if (
-          rule.effect === "deny" &&
-          cond.field === "model" &&
-          cond.operator === "not_in" &&
-          Array.isArray(cond.value)
-        ) {
-          const allowedModels = cond.value as string[];
-          if (!allowedModels.includes(context.model)) {
-            return {
-              allowed: false,
-              policyRef: policy.id.id as string,
-              policyDescription: policy.description ?? policy.title,
-              allowedModels,
-            };
-          }
-        }
-      }
+  const cache = createEngineCache();
+
+  for (const policy of relevantPolicies) {
+    const result = await evaluateRegoPolicy(
+      policy.rego_source,
+      policy.id.id as string,
+      policy.version,
+      proxyInput,
+      cache,
+    );
+
+    if (result.decision === "deny") {
+      return {
+        allowed: false,
+        policyRef: policy.id.id as string,
+        policyDescription: policy.description ?? policy.title,
+      };
     }
   }
 
@@ -338,7 +335,7 @@ export async function evaluateProxyPolicy(
       return { decision: "allow", policyIds: [] };
     }
 
-    const modelCheck = evaluateModelAccess(policies, context);
+    const modelCheck = await evaluateModelAccess(policies, context);
 
     if (!modelCheck.allowed) {
       log.info("proxy.policy.model_denied", "Model access denied by policy", {
@@ -356,8 +353,8 @@ export async function evaluateProxyPolicy(
           policy_ref: modelCheck.policyRef,
           policy_description: modelCheck.policyDescription,
           model_requested: context.model,
-          model_suggestion: modelCheck.allowedModels,
-          remediation: `Model '${context.model}' is not allowed for agent type '${context.agentType}'. Allowed models: ${modelCheck.allowedModels.join(", ")}. Contact workspace admin to update model access policies.`,
+          model_suggestion: [],
+          remediation: `Model '${context.model}' is not allowed for agent type '${context.agentType}'. Contact workspace admin to update model access policies.`,
         },
       };
     }

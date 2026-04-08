@@ -103,12 +103,12 @@ describe("evaluateIntent", () => {
         version: 1,
         status: "active",
         selector: {},
-        rules: [{
-          id: "block_deploy",
-          condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-          effect: "deny",
-          priority: 100,
-        }],
+        rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.action_spec.action == "deploy"
+  msg := "deploy blocked by policy"
+}`,
         human_veto_required: false,
         created_by: mockIdentityId,
         workspace: mockWorkspaceId,
@@ -223,12 +223,8 @@ describe("evaluateIntent", () => {
         version: 1,
         status: "active",
         selector: {},
-        rules: [{
-          id: "allow_all",
-          condition: { field: "goal", operator: "exists", value: true },
-          effect: "allow",
-          priority: 1,
-        }],
+        rego_source: `package osabio.policy
+default allow := true`,
         human_veto_required: true,
         created_by: mockIdentityId,
         workspace: mockWorkspaceId,
@@ -255,12 +251,8 @@ describe("evaluateIntent", () => {
         version: 1,
         status: "active",
         selector: {},
-        rules: [{
-          id: "allow_all",
-          condition: { field: "goal", operator: "exists", value: true },
-          effect: "allow",
-          priority: 1,
-        }],
+        rego_source: `package osabio.policy
+default allow := true`,
         human_veto_required: true,
         created_by: mockIdentityId,
         workspace: mockWorkspaceId,

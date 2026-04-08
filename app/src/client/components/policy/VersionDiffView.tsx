@@ -8,6 +8,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Badge } from "../ui/badge";
+import { RegoEditor } from "./RegoEditor";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +42,7 @@ type DiffablePolicy = {
   version: number;
   selector: PolicySelector;
   rules: PolicyRule[];
+  rego_source?: string;
   human_veto_required: boolean;
   max_ttl?: string;
 };
@@ -64,6 +66,9 @@ export type PolicyDiffResult = {
   ruleDiffs: RuleDiff[];
   selectorChanges: FieldChange[];
   metadataChanges: FieldChange[];
+  regoSourceChanged: boolean;
+  oldRegoSource?: string;
+  newRegoSource?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -121,11 +126,19 @@ export function diffMetadata(oldPolicy: DiffablePolicy, newPolicy: DiffablePolic
 }
 
 export function computePolicyDiff(oldPolicy: DiffablePolicy, newPolicy: DiffablePolicy): PolicyDiffResult {
-  return { ruleDiffs: diffRules(oldPolicy.rules, newPolicy.rules), selectorChanges: diffSelector(oldPolicy.selector, newPolicy.selector), metadataChanges: diffMetadata(oldPolicy, newPolicy) };
+  const regoSourceChanged = (oldPolicy.rego_source ?? "") !== (newPolicy.rego_source ?? "");
+  return {
+    ruleDiffs: diffRules(oldPolicy.rules, newPolicy.rules),
+    selectorChanges: diffSelector(oldPolicy.selector, newPolicy.selector),
+    metadataChanges: diffMetadata(oldPolicy, newPolicy),
+    regoSourceChanged,
+    oldRegoSource: oldPolicy.rego_source,
+    newRegoSource: newPolicy.rego_source,
+  };
 }
 
 function hasDifferences(diff: PolicyDiffResult): boolean {
-  return diff.ruleDiffs.length > 0 || diff.selectorChanges.length > 0 || diff.metadataChanges.length > 0;
+  return diff.ruleDiffs.length > 0 || diff.selectorChanges.length > 0 || diff.metadataChanges.length > 0 || diff.regoSourceChanged;
 }
 
 function formatConditionDisplay(condition: RuleCondition): string {
@@ -199,6 +212,22 @@ export function VersionDiffView({
                     headers={["Field", `v${oldPolicy.version}`, `v${newPolicy.version}`]}
                     rows={diff.selectorChanges.map((c) => ({ key: c.field, cells: [c.field, c.oldValue, c.newValue] }))}
                   />
+                </div>
+              </div>
+            )}
+
+            {diff.regoSourceChanged && (
+              <div className="flex flex-col gap-1">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rego Source</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs text-muted-foreground">v{oldPolicy.version}</p>
+                    <RegoEditor value={diff.oldRegoSource ?? ""} onChange={() => undefined} readOnly />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs text-muted-foreground">v{newPolicy.version}</p>
+                    <RegoEditor value={diff.newRegoSource ?? ""} onChange={() => undefined} readOnly />
+                  </div>
                 </div>
               </div>
             )}

@@ -221,7 +221,7 @@ export async function seedPolicy(
       status: "active",
       workspace: workspaceRecord,
       selector: {},
-      rules: [],
+      rego_source: "package osabio.policy\ndefault allow = true",
       version: 1,
       created_by: createdBy,
       created_at: new Date(),

@@ -532,13 +532,8 @@ export async function createModelAccessPolicy(
       status: options.status ?? "active",
       version: 1,
       workspace: workspaceRecord,
-      rules: [{
-        id: "model_access",
-        condition: { field: "agent_type", operator: "eq", value: options.agentType },
-        effect: "allow",
-        priority: 50,
-        params: { allowed_models: options.allowedModels },
-      }],
+      selector: {},
+      rego_source: "package osabio.policy\ndefault allow = true",
       created_at: new Date(),
     },
   });

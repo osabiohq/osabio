@@ -38,23 +38,6 @@ export {
 // Policy-Specific Types
 // ---------------------------------------------------------------------------
 
-export type RulePredicate = {
-  field: string;
-  operator: "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "in" | "not_in" | "exists";
-  value: string | number | boolean | string[];
-};
-
-export type RuleCondition = RulePredicate | RulePredicate[];
-
-export type PolicyRule = {
-  id: string;
-  condition: RuleCondition;
-  effect: "allow" | "deny" | "evidence_requirement";
-  priority: number;
-  min_evidence_count?: number;
-  required_types?: string[];
-};
-
 export type PolicySelector = {
   workspace?: string;
   agent_role?: string;
@@ -70,7 +53,7 @@ export type PolicyRecord = {
   version: number;
   status: PolicyStatus;
   selector: PolicySelector;
-  rules: PolicyRule[];
+  rego_source: string;
   human_veto_required: boolean;
   max_ttl?: string;
   created_by: RecordId<"identity">;
@@ -83,6 +66,7 @@ export type PolicyRecord = {
 export type PolicyTraceEntry = {
   policy_id: string;
   policy_version: number;
+  /** For Rego policies: contains policy ID. Field name kept for trace format compatibility. */
   rule_id: string;
   effect: "allow" | "deny";
   matched: boolean;
@@ -94,7 +78,7 @@ export type CreatePolicyOptions = {
   description?: string;
   status?: PolicyStatus;
   selector?: PolicySelector;
-  rules: PolicyRule[];
+  rego_source: string;
   human_veto_required?: boolean;
   max_ttl?: string;
 };
@@ -119,7 +103,7 @@ export async function createPolicy(
     version: 1,
     status: opts.status ?? "draft",
     selector: opts.selector ?? {},
-    rules: opts.rules,
+    rego_source: opts.rego_source,
     human_veto_required: opts.human_veto_required ?? false,
     created_by: createdByRecord,
     workspace: workspaceRecord,
@@ -234,6 +218,10 @@ export async function simulatePolicyGateResult(
     policy_only: boolean;
     policy_trace: PolicyTraceEntry[];
     human_veto_required?: boolean;
+    evidence_requirement?: {
+      min_count: number;
+      required_types: string[];
+    };
   },
   resultStatus: "authorized" | "pending_veto" | "vetoed",
 ): Promise<void> {
@@ -248,6 +236,9 @@ export async function simulatePolicyGateResult(
   };
   if (result.human_veto_required !== undefined) {
     evalContent.human_veto_required = result.human_veto_required;
+  }
+  if (result.evidence_requirement !== undefined) {
+    evalContent.evidence_requirement = result.evidence_requirement;
   }
 
   const updates: Record<string, unknown> = {
@@ -313,7 +304,7 @@ export async function createPolicyVersion(
   oldPolicyId: string,
   workspaceId: string,
   createdById: string,
-  newRules: PolicyRule[],
+  newRegoSource: string,
 ): Promise<{ policyId: string }> {
   const oldPolicy = await getPolicyRecord(surreal, oldPolicyId);
   const newPolicyId = `policy-${crypto.randomUUID()}`;
@@ -329,7 +320,7 @@ export async function createPolicyVersion(
         version: $newVersion,
         status: 'active',
         selector: $selector,
-        rules: $rules,
+        rego_source: $regoSource,
         human_veto_required: $vetoRequired,
         created_by: $createdBy,
         workspace: $workspace,
@@ -344,7 +335,7 @@ export async function createPolicyVersion(
     title: oldPolicy.title,
     newVersion: (oldPolicy.version as number) + 1,
     selector: oldPolicy.selector,
-    rules: newRules,
+    regoSource: newRegoSource,
     vetoRequired: oldPolicy.human_veto_required,
     createdBy: createdByRecord,
     workspace: workspaceRecord,

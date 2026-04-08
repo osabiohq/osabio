@@ -1,35 +1,30 @@
 import type { RecordId, Surreal } from "surrealdb";
 import type {
   PolicyRecord,
-  PolicyRule,
   PolicyGateResult,
   PolicyTraceEntry,
   PolicyGateWarning,
   PolicyEvidenceRequirements,
   IntentEvaluationContext,
 } from "./types";
-import { evaluateCondition } from "./predicate-evaluator";
+import {
+  evaluateRegoPolicy,
+  createEngineCache,
+  type RegoEvaluationResult,
+} from "./rego-evaluator";
 import { loadActivePolicies } from "./policy-queries";
 
 // ---------------------------------------------------------------------------
 // Pipeline Types
 // ---------------------------------------------------------------------------
 
-type AnnotatedRule = {
+type EvaluatedPolicy = {
   policyId: string;
   policyVersion: number;
   humanVetoRequired: boolean;
-  rule: PolicyRule;
-};
-
-type EvaluatedRule = AnnotatedRule & {
-  matched: boolean;
-  warnings: PolicyGateWarning[];
-};
-
-type EvaluationResult = {
-  evaluatedRules: EvaluatedRule[];
-  denyMatched: boolean;
+  denied: boolean;
+  denyMessages: string[];
+  evidenceRequirement: RegoEvaluationResult["evidence_requirement"];
   warnings: PolicyGateWarning[];
 };
 
@@ -54,108 +49,34 @@ export const deduplicatePolicies = (
   return result;
 };
 
-export const collectAndSortRules = (
-  policies: PolicyRecord[],
-): AnnotatedRule[] => {
-  const annotated = policies.flatMap((policy) =>
-    policy.rules.map((rule) => ({
-      policyId: policy.id.id as string,
-      policyVersion: policy.version,
-      humanVetoRequired: policy.human_veto_required,
-      rule,
-    })),
-  );
-
-  return annotated.sort((a, b) => b.rule.priority - a.rule.priority);
-};
-
-export const evaluateRulesAgainstContext = (
-  rules: AnnotatedRule[],
-  context: IntentEvaluationContext,
-): EvaluationResult => {
-  const contextRecord = context as unknown as Record<string, unknown>;
-  const evaluatedRules: EvaluatedRule[] = [];
-  const allWarnings: PolicyGateWarning[] = [];
-
-  for (const annotated of rules) {
-    const { matched, warnings } = evaluateCondition(
-      contextRecord,
-      annotated.rule.condition,
-      annotated.rule.id,
-      annotated.policyId,
-    );
-
-    allWarnings.push(...warnings);
-    evaluatedRules.push({ ...annotated, matched, warnings });
-
-    if (matched && annotated.rule.effect === "deny") {
-      return {
-        evaluatedRules,
-        denyMatched: true,
-        warnings: allWarnings,
-      };
-    }
-  }
-
-  return {
-    evaluatedRules,
-    denyMatched: false,
-    warnings: allWarnings,
-  };
-};
-
-/**
- * Extracts evidence requirements from matched evidence_requirement rules.
- * Returns the first (highest-priority) matched requirement, since rules
- * are already sorted by priority DESC.
- */
-export const extractEvidenceRequirements = (
-  evaluatedRules: EvaluatedRule[],
-): PolicyEvidenceRequirements | undefined => {
-  const matchedRequirement = evaluatedRules.find(
-    (entry) =>
-      entry.matched && entry.rule.effect === "evidence_requirement",
-  );
-
-  if (!matchedRequirement) return undefined;
-
-  return {
-    min_count: matchedRequirement.rule.min_evidence_count ?? 1,
-    ...(matchedRequirement.rule.required_types
-      ? { required_types: matchedRequirement.rule.required_types }
-      : {}),
-  };
-};
-
 export const buildGateResult = (
-  evaluatedRules: EvaluatedRule[],
+  evaluatedPolicies: EvaluatedPolicy[],
   denyMatched: boolean,
   warnings: PolicyGateWarning[],
   evidenceRequirements?: PolicyEvidenceRequirements,
 ): PolicyGateResult => {
-  const policyTrace: PolicyTraceEntry[] = evaluatedRules.map((entry) => ({
+  const policyTrace: PolicyTraceEntry[] = evaluatedPolicies.map((entry) => ({
     policy_id: entry.policyId,
     policy_version: entry.policyVersion,
-    rule_id: entry.rule.id,
-    effect: entry.rule.effect,
-    matched: entry.matched,
-    priority: entry.rule.priority,
+    // For Rego policies: rule_id contains the policy ID (one entry per policy)
+    rule_id: entry.policyId,
+    effect: entry.denied ? "deny" : "allow",
+    matched: entry.denied,
+    priority: 0,
   }));
 
   if (denyMatched) {
-    const denyRule = evaluatedRules.find(
-      (entry) => entry.matched && entry.rule.effect === "deny",
-    );
+    const denyEntry = evaluatedPolicies.find((entry) => entry.denied);
     return {
       passed: false,
-      reason: `Policy deny rule '${denyRule!.rule.id}' matched`,
+      reason: `Rego policy '${denyEntry!.policyId}' denied: ${denyEntry!.denyMessages.join("; ")}`,
       policy_trace: policyTrace,
-      deny_rule_id: denyRule!.rule.id,
+      deny_rule_id: denyEntry!.policyId,
       warnings,
     };
   }
 
-  const humanVetoRequired = evaluatedRules.some(
+  const humanVetoRequired = evaluatedPolicies.some(
     (entry) => entry.humanVetoRequired,
   );
 
@@ -165,6 +86,23 @@ export const buildGateResult = (
     human_veto_required: humanVetoRequired,
     warnings,
     ...(evidenceRequirements ? { evidence_requirements: evidenceRequirements } : {}),
+  };
+};
+
+const extractEvidenceRequirementsFromPolicies = (
+  evaluatedPolicies: EvaluatedPolicy[],
+): PolicyEvidenceRequirements | undefined => {
+  const withRequirement = evaluatedPolicies.find(
+    (entry) => !entry.denied && entry.evidenceRequirement !== undefined,
+  );
+
+  if (!withRequirement?.evidenceRequirement) return undefined;
+
+  return {
+    min_count: withRequirement.evidenceRequirement.min_count,
+    ...(withRequirement.evidenceRequirement.required_types
+      ? { required_types: withRequirement.evidenceRequirement.required_types }
+      : {}),
   };
 };
 
@@ -181,14 +119,57 @@ export const evaluatePolicyGate = async (
   // Effect boundary: single DB read
   const rawPolicies = await loadActivePolicies(surreal, identityId, workspaceId);
 
-  // Pure pipeline
+  // Pure deduplication
   const deduplicated = deduplicatePolicies(rawPolicies);
-  const sortedRules = collectAndSortRules(deduplicated);
-  const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-    sortedRules,
-    intentContext,
-  );
-  const evidenceRequirements = extractEvidenceRequirements(evaluatedRules);
 
-  return buildGateResult(evaluatedRules, denyMatched, warnings, evidenceRequirements);
+  // Engine cache: per-gate-call (avoids module-level mutable singleton per AGENTS.md)
+  const engineCache = createEngineCache();
+
+  const evaluatedPolicies: EvaluatedPolicy[] = [];
+  const allWarnings: PolicyGateWarning[] = [];
+
+  // Evaluate each policy via Rego; short-circuit on first deny
+  for (const policy of deduplicated) {
+    const policyId = policy.id.id as string;
+
+    let result: RegoEvaluationResult;
+    try {
+      result = await evaluateRegoPolicy(
+        policy.rego_source,
+        policyId,
+        policy.version,
+        intentContext,
+        engineCache,
+      );
+    } catch (err: unknown) {
+      // Fail-closed: WASM load failure or engine error → deny
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        passed: false,
+        reason: `Policy evaluation error: ${message}`,
+        policy_trace: [],
+        deny_rule_id: policyId,
+        warnings: [{ rule_id: policyId, field: "rego_source", policy_id: policyId }],
+      };
+    }
+
+    const denied = result.decision === "deny";
+    evaluatedPolicies.push({
+      policyId,
+      policyVersion: policy.version,
+      humanVetoRequired: policy.human_veto_required,
+      denied,
+      denyMessages: result.messages,
+      evidenceRequirement: result.evidence_requirement,
+      warnings: [],
+    });
+
+    if (denied) {
+      return buildGateResult(evaluatedPolicies, true, allWarnings);
+    }
+  }
+
+  const evidenceRequirements = extractEvidenceRequirementsFromPolicies(evaluatedPolicies);
+
+  return buildGateResult(evaluatedPolicies, false, allWarnings, evidenceRequirements);
 };

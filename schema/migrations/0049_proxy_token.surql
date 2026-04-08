@@ -5,24 +5,24 @@
 
 BEGIN TRANSACTION;
 
-DEFINE TABLE proxy_token SCHEMAFULL;
+DEFINE TABLE OVERWRITE proxy_token SCHEMAFULL;
 
 -- Token hash (SHA-256 of the raw token; raw token never stored)
-DEFINE FIELD token_hash ON proxy_token TYPE string;
+DEFINE FIELD OVERWRITE token_hash ON proxy_token TYPE string;
 -- Workspace this token is scoped to
-DEFINE FIELD workspace ON proxy_token TYPE record<workspace>;
+DEFINE FIELD OVERWRITE workspace ON proxy_token TYPE record<workspace>;
 -- Identity that owns this token
-DEFINE FIELD identity ON proxy_token TYPE record<identity>;
+DEFINE FIELD OVERWRITE identity ON proxy_token TYPE record<identity>;
 -- Expiration timestamp
-DEFINE FIELD expires_at ON proxy_token TYPE datetime;
+DEFINE FIELD OVERWRITE expires_at ON proxy_token TYPE datetime;
 -- Creation timestamp
-DEFINE FIELD created_at ON proxy_token TYPE datetime DEFAULT time::now();
+DEFINE FIELD OVERWRITE created_at ON proxy_token TYPE datetime DEFAULT time::now();
 -- Revocation flag
-DEFINE FIELD revoked ON proxy_token TYPE bool DEFAULT false;
+DEFINE FIELD OVERWRITE revoked ON proxy_token TYPE bool DEFAULT false;
 
 -- Unique constraint: each token hash must be globally unique
-DEFINE INDEX idx_proxy_token_hash ON proxy_token FIELDS token_hash UNIQUE;
+DEFINE INDEX OVERWRITE idx_proxy_token_hash ON proxy_token FIELDS token_hash UNIQUE;
 -- Composite index: lookup tokens by identity + workspace
-DEFINE INDEX idx_proxy_token_identity_workspace ON proxy_token FIELDS identity, workspace;
+DEFINE INDEX OVERWRITE idx_proxy_token_identity_workspace ON proxy_token FIELDS identity, workspace;
 
 COMMIT TRANSACTION;

@@ -21,6 +21,7 @@ import {
   deprecatePolicy,
   createPolicyVersion,
   getPolicyDetail,
+  DEFAULT_REGO_SOURCE,
   type PolicyDetailResponse,
 } from "./policy-crud-test-kit";
 
@@ -48,10 +49,7 @@ describe("Milestone 4: Policy Detail (US-PCUI-03)", () => {
       title: "Full Detail Policy",
       description: "Comprehensive access control for coding agents",
       selector: { agent_role: "coding" },
-      rules: [
-        { id: "block_deploy", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 },
-        { id: "allow_read", condition: { field: "action_spec.action", operator: "eq", value: "read" }, effect: "allow", priority: 10 },
-      ],
+      rego_source: DEFAULT_REGO_SOURCE,
       human_veto_required: true,
       max_ttl: "PT1H",
     });
@@ -70,7 +68,6 @@ describe("Milestone 4: Policy Detail (US-PCUI-03)", () => {
     expect(detail.policy.version).toBe(1);
     expect(detail.policy.status).toBe("draft");
     expect(detail.policy.selector.agent_role).toBe("coding");
-    expect(detail.policy.rules).toHaveLength(2);
     expect(detail.policy.human_veto_required).toBe(true);
     expect(detail.policy.max_ttl).toBe("PT1H");
     expect(detail.policy.created_at).toBeDefined();
@@ -90,7 +87,7 @@ describe("Milestone 4: Policy Detail (US-PCUI-03)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Edged Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -123,7 +120,7 @@ describe("Milestone 4: Policy Detail (US-PCUI-03)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Deprecated Detail",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
     await deprecatePolicy(surreal, policyId);
@@ -182,14 +179,14 @@ describe("Milestone 4: Version History in Detail (US-PCUI-07)", () => {
 
     const { policyId: v1Id } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Version Chain Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, v1Id, adminId, workspace.workspaceId);
 
     // Create v2 from v1 (which supersedes v1)
     const { policyId: v2Id } = await createPolicyVersion(
       surreal, v1Id, workspace.workspaceId, adminId,
-      [{ id: "r1_updated", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 150 }],
+      'package osabio.policy\ndefault allow = false\ndeny if { input.action_spec.action == "deploy" }',
     );
 
     // When admin views the v2 detail
@@ -229,7 +226,7 @@ describe("Milestone 4: Version History in Detail (US-PCUI-07)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Standalone Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "read" }, effect: "allow", priority: 10 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
 
     // When admin views the detail

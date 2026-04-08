@@ -134,7 +134,7 @@ describe("BM25 fulltext indexes migration (0062)", () => {
         version = 1,
         status = 'draft',
         selector = { workspace: 'test' },
-        rules = [{ id: 'r1', condition: {}, effect: 'allow', priority: 1 }],
+        rego_source = 'package osabio.policy\ndefault allow = true',
         human_veto_required = false,
         created_by = identity:bm25admin,
         workspace = workspace:bm25test,

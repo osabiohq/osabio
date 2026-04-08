@@ -1,0 +1,131 @@
+persona:
+  name: Platform lead at a 3-person ops team
+  role: Workspace admin
+  context: Manages 5-10 active policies governing sandbox agents. Comfortable with JSON and YAML but new to Rego. Uses both the Policy Management UI and CLI. Pain point — the predicate builder can't express "deny if agent has had 3+ rejected intents in the last hour" or "allow only if agent has ANY of these roles."
+  goal: Author governance policies that express conditions the current predicate builder cannot handle, without requiring developer assistance.
+
+journey:
+  name: policy-authoring-with-rego
+  actor: workspace_admin
+  goal: Create, validate, and activate a governance policy using Rego syntax
+  trigger: Admin needs to enforce a governance rule on agent intents
+
+  phases:
+    - id: discovery
+      name: Discovery
+      steps:
+        - id: navigate
+          action: Navigate to Policy Management page
+          touchpoint: policy_management_ui
+          emotion: neutral
+        - id: open_dialog
+          action: Click "Create Policy"
+          touchpoint: create_policy_dialog
+          emotion: neutral
+
+    - id: authoring
+      name: Authoring
+      steps:
+        - id: fill_metadata
+          action: Fill title, description, optional selector
+          touchpoint: create_policy_dialog
+          artifacts_produced:
+            - policy_meta
+        - id: write_rego
+          action: Write Rego policy body in editor
+          touchpoint: rego_editor
+          artifacts_produced:
+            - rego_source
+          supports:
+            - syntax_highlighting
+            - field_suggestions
+            - rego_snippets
+
+    - id: validation
+      name: Validation
+      steps:
+        - id: compile_check
+          action: Click "Validate" to compile Rego source
+          touchpoint: inline_diagnostics
+          artifacts_produced:
+            - compile_result
+          emotion: anxious_to_relieved
+          error_paths:
+            - id: syntax_error
+              trigger: Invalid Rego syntax
+              recovery: Inline error with line/column position
+            - id: unknown_field
+              trigger: Referenced field not in input schema
+              recovery: Field suggestion dropdown
+        - id: test_against_mock
+          action: Test policy against mock IntentEvaluationContext
+          touchpoint: test_panel
+          artifacts_produced:
+            - test_result
+          optional: true
+
+    - id: activation
+      name: Activation
+      steps:
+        - id: submit_draft
+          action: Submit policy as draft
+          touchpoint: create_policy_dialog
+          artifacts_produced:
+            - policy_record
+        - id: review
+          action: Review policy on detail page
+          touchpoint: policy_detail_page
+        - id: activate
+          action: Click "Activate" to make policy live
+          touchpoint: policy_detail_page
+          artifacts_produced:
+            - governing_edge
+            - protects_edge
+          emotion: confident
+
+    - id: monitoring
+      name: Monitoring
+      steps:
+        - id: check_traces
+          action: Monitor intent evaluation traces
+          touchpoint: intent_trace_view
+          artifacts_consumed:
+            - policy_trace
+            - intent_eval
+          emotion: trusting
+        - id: adjust
+          action: Create new version if policy needs tuning
+          touchpoint: policy_detail_page
+          optional: true
+
+  shared_artifacts:
+    - id: rego_source
+      type: text
+      description: Rego policy source code
+      produced_by: write_rego
+      consumed_by: [compile_check, test_against_mock, submit_draft]
+    - id: policy_meta
+      type: object
+      description: Title, description, selector, human_veto_required, max_ttl
+      produced_by: fill_metadata
+      consumed_by: [submit_draft]
+    - id: compile_result
+      type: object
+      description: Regorus compilation result (success or errors with positions)
+      produced_by: compile_check
+      consumed_by: [write_rego]
+    - id: test_result
+      type: object
+      description: Allow/deny result from evaluating policy against mock input
+      produced_by: test_against_mock
+      consumed_by: []
+    - id: policy_record
+      type: record
+      description: SurrealDB policy record in draft status
+      produced_by: submit_draft
+      consumed_by: [review, activate]
+    - id: policy_trace
+      type: array
+      description: PolicyTraceEntry[] on evaluated intents
+      produced_by: intent_authorization
+      consumed_by: [check_traces]

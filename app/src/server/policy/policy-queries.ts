@@ -1,5 +1,5 @@
 import { RecordId, type Surreal } from "surrealdb";
-import type { PolicyRecord, PolicyRule, PolicySelector, PolicyStatus } from "./types";
+import type { PolicyRecord, PolicySelector, PolicyStatus } from "./types";
 
 // --- Detail Response Types ---
 
@@ -38,7 +38,7 @@ const toPolicyListItem = (record: PolicyRecord): PolicyListItem => ({
   title: record.title,
   status: record.status,
   version: record.version,
-  rules_count: record.rules?.length ?? 0,
+  rules_count: 0,
   human_veto_required: record.human_veto_required ?? false,
   created_at: formatTimestamp(record.created_at),
   ...(record.updated_at ? { updated_at: formatTimestamp(record.updated_at) } : {}),
@@ -50,7 +50,7 @@ type CreatePolicyParams = {
   title: string;
   description?: string;
   selector?: PolicySelector;
-  rules: PolicyRule[];
+  rego_source: string;
   human_veto_required?: boolean;
   max_ttl?: string;
   createdBy: RecordId<"identity">;
@@ -132,7 +132,7 @@ export async function createPolicy(
       version: 1, // placeholder — overwritten atomically inside transaction
       status: "draft",
       selector: params.selector ?? {},
-      rules: params.rules,
+      rego_source: params.rego_source,
       human_veto_required: params.human_veto_required ?? false,
       created_by: params.createdBy,
       workspace: params.workspace,
@@ -180,7 +180,7 @@ export async function createPolicy(
     version: 1,
     status: "draft",
     selector: params.selector ?? {},
-    rules: params.rules,
+    rego_source: params.rego_source,
     human_veto_required: params.human_veto_required ?? false,
     created_by: params.createdBy,
     workspace: params.workspace,
@@ -447,7 +447,7 @@ export async function getVersionChain(
     status: v.status,
     created_at: formatTimestamp(v.created_at),
     title: v.title,
-    rules_count: v.rules?.length ?? 0,
+    rules_count: 0,
   }));
 }
 

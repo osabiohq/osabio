@@ -2,6 +2,6 @@
 
 BEGIN TRANSACTION;
 
-DEFINE FIELD author_name ON git_commit TYPE string;
+DEFINE FIELD OVERWRITE author_name ON git_commit TYPE string;
 
 COMMIT TRANSACTION;

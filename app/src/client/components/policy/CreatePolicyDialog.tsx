@@ -1,16 +1,11 @@
 /**
- * Dialog for creating a new policy.
+ * Dialog for creating a new policy with a Rego source editor.
  */
 
 import { useCallback, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useWorkspaceState } from "../../stores/workspace-state";
-import {
-  type RuleEntry,
-  RuleBuilder,
-  createEmptyRule,
-  ruleEntryToApiRule,
-} from "./RuleBuilder";
+import { RegoEditor } from "./RegoEditor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -27,19 +22,46 @@ type PolicyFormState = {
   agentRole: string;
   humanVetoRequired: boolean;
   maxTtl: string;
-  rules: RuleEntry[];
+  regoSource: string;
 };
 
 type FormErrors = {
   title?: string;
   description?: string;
-  rules?: string;
+  regoSource?: string;
   submit?: string;
 };
 
 // ---------------------------------------------------------------------------
+// Intent evaluation context reference fields
+// ---------------------------------------------------------------------------
+
+const CONTEXT_FIELDS: Array<{ path: string; type: string; description: string }> = [
+  { path: "input.action_spec.action", type: "string", description: "Action being requested" },
+  { path: "input.action_spec.provider", type: "string", description: "Provider handling the action" },
+  { path: "input.behavior_scores.<name>", type: "number", description: "Behavior score by name" },
+  { path: "input.budget_limit.amount", type: "number", description: "Budget amount" },
+  { path: "input.budget_limit.currency", type: "string", description: "Budget currency" },
+  { path: "input.requester_type", type: "string", description: "Type of requester" },
+  { path: "input.requester_role", type: "string", description: "Role of requester" },
+  { path: "input.priority", type: "number", description: "Intent priority level" },
+];
+
+// ---------------------------------------------------------------------------
 // Pure form helpers
 // ---------------------------------------------------------------------------
+
+const DEFAULT_REGO_SOURCE = `package osabio.policy
+
+import future.keywords.if
+
+default allow := false
+
+allow if {
+  # Add conditions here
+  true
+}
+`;
 
 function createInitialFormState(): PolicyFormState {
   return {
@@ -48,7 +70,7 @@ function createInitialFormState(): PolicyFormState {
     agentRole: "",
     humanVetoRequired: false,
     maxTtl: "",
-    rules: [createEmptyRule()],
+    regoSource: DEFAULT_REGO_SOURCE,
   };
 }
 
@@ -56,12 +78,7 @@ function validateForm(state: PolicyFormState): FormErrors {
   const errors: FormErrors = {};
   if (state.title.trim() === "") errors.title = "Title is required";
   if (state.description.trim() === "") errors.description = "Description is required";
-  if (state.rules.length === 0) {
-    errors.rules = "At least one rule is required";
-  } else {
-    const hasEmptyField = state.rules.some((r) => r.field.trim() === "");
-    if (hasEmptyField) errors.rules = "All rules must have a non-empty field";
-  }
+  if (state.regoSource.trim() === "") errors.regoSource = "Rego source is required";
   return errors;
 }
 
@@ -73,7 +90,7 @@ function buildRequestBody(state: PolicyFormState) {
   const body: Record<string, unknown> = {
     title: state.title.trim(),
     description: state.description.trim(),
-    rules: state.rules.map(ruleEntryToApiRule),
+    rego_source: state.regoSource,
   };
   if (state.agentRole.trim()) body.selector = { agent_role: state.agentRole.trim() };
   if (state.humanVetoRequired) body.human_veto_required = true;
@@ -97,6 +114,7 @@ export function CreatePolicyDialog({ open, onClose }: CreatePolicyDialogProps) {
   const [form, setForm] = useState<PolicyFormState>(createInitialFormState);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showContextRef, setShowContextRef] = useState(false);
 
   const updateField = useCallback(
     <K extends keyof PolicyFormState>(field: K, value: PolicyFormState[K]) => {
@@ -105,7 +123,7 @@ export function CreatePolicyDialog({ open, onClose }: CreatePolicyDialogProps) {
         const next = { ...prev };
         if (field === "title") delete next.title;
         if (field === "description") delete next.description;
-        if (field === "rules") delete next.rules;
+        if (field === "regoSource") delete next.regoSource;
         delete next.submit;
         return next;
       });
@@ -113,8 +131,8 @@ export function CreatePolicyDialog({ open, onClose }: CreatePolicyDialogProps) {
     [],
   );
 
-  const handleRulesChange = useCallback(
-    (rules: RuleEntry[]) => { updateField("rules", rules); },
+  const handleRegoChange = useCallback(
+    (value: string) => { updateField("regoSource", value); },
     [updateField],
   );
 
@@ -166,7 +184,7 @@ export function CreatePolicyDialog({ open, onClose }: CreatePolicyDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create Policy</DialogTitle>
         </DialogHeader>
@@ -192,7 +210,7 @@ export function CreatePolicyDialog({ open, onClose }: CreatePolicyDialogProps) {
             <Textarea
               id="policy-description"
               placeholder="Describe what this policy governs"
-              rows={3}
+              rows={2}
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
             />
@@ -231,8 +249,38 @@ export function CreatePolicyDialog({ open, onClose }: CreatePolicyDialogProps) {
           </label>
 
           <div className="flex flex-col gap-1.5">
-            <RuleBuilder rules={form.rules} onRulesChange={handleRulesChange} />
-            {errors.rules && <p className="text-xs text-destructive">{errors.rules}</p>}
+            <div className="flex items-center justify-between">
+              <Label>Rego Source <span className="text-destructive">*</span></Label>
+              <button
+                type="button"
+                onClick={() => setShowContextRef((prev) => !prev)}
+                className="text-xs text-ring hover:underline"
+              >
+                {showContextRef ? "Hide" : "Show"} field reference
+              </button>
+            </div>
+
+            {showContextRef && (
+              <div className="rounded-md border border-border bg-muted p-2">
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">IntentEvaluationContext fields</p>
+                <dl className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+                  {CONTEXT_FIELDS.map((field) => (
+                    <div key={field.path} className="contents">
+                      <dt className="font-mono text-foreground">{field.path}</dt>
+                      <dd className="text-muted-foreground">{field.type}</dd>
+                      <dd className="text-muted-foreground">{field.description}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
+            <RegoEditor
+              value={form.regoSource}
+              onChange={handleRegoChange}
+              showValidate
+            />
+            {errors.regoSource && <p className="text-xs text-destructive">{errors.regoSource}</p>}
           </div>
         </div>
 
@@ -240,7 +288,7 @@ export function CreatePolicyDialog({ open, onClose }: CreatePolicyDialogProps) {
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={() => { void handleSubmit(); }} disabled={isSubmitting}>
             {isSubmitting ? "Creating..." : "Create Policy"}
           </Button>
         </DialogFooter>

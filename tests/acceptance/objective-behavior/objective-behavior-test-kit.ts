@@ -393,20 +393,7 @@ export async function createBehaviorPolicy(
   opts: {
     title: string;
     status?: "draft" | "active" | "testing" | "archived";
-    rules: Array<{
-      id: string;
-      condition: {
-        field: string;
-        operator: string;
-        value: string | number | boolean | string[];
-      } | {
-        metric_type: string;
-        operator: string;
-        threshold: number;
-      };
-      effect: "deny" | "allow";
-      priority: number;
-    }>;
+    rego_source: string;
   },
 ): Promise<{ policyId: string }> {
   const policyId = `policy-${crypto.randomUUID()}`;
@@ -421,8 +408,8 @@ export async function createBehaviorPolicy(
       description: `Policy: ${opts.title}`,
       status: opts.status ?? "active",
       version: 1,
-      rules: opts.rules,
       selector: {},
+      rego_source: opts.rego_source,
       created_by: creatorRecord,
       workspace: workspaceRecord,
       created_at: new Date(),

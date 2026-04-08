@@ -7,24 +7,24 @@ BEGIN TRANSACTION;
 -- ---------------------------------------------------------------------------
 -- mcp_server: MCP server connection configuration
 -- ---------------------------------------------------------------------------
-DEFINE TABLE mcp_server SCHEMAFULL;
-DEFINE FIELD name ON mcp_server TYPE string;
-DEFINE FIELD url ON mcp_server TYPE string;
-DEFINE FIELD transport ON mcp_server TYPE string DEFAULT "streamable-http"
+DEFINE TABLE OVERWRITE mcp_server SCHEMAFULL;
+DEFINE FIELD OVERWRITE name ON mcp_server TYPE string;
+DEFINE FIELD OVERWRITE url ON mcp_server TYPE string;
+DEFINE FIELD OVERWRITE transport ON mcp_server TYPE string DEFAULT "streamable-http"
   ASSERT $value IN ["streamable-http", "sse"];
-DEFINE FIELD workspace ON mcp_server TYPE record<workspace>;
-DEFINE FIELD provider ON mcp_server TYPE option<record<credential_provider>>;
-DEFINE FIELD last_status ON mcp_server TYPE option<string>
+DEFINE FIELD OVERWRITE workspace ON mcp_server TYPE record<workspace>;
+DEFINE FIELD OVERWRITE provider ON mcp_server TYPE option<record<credential_provider>>;
+DEFINE FIELD OVERWRITE last_status ON mcp_server TYPE option<string>
   ASSERT $value IN ["ok", "error"] OR $value IS NONE;
-DEFINE FIELD last_error ON mcp_server TYPE option<string>;
-DEFINE FIELD server_info ON mcp_server TYPE option<object> FLEXIBLE;
-DEFINE FIELD capabilities ON mcp_server TYPE option<object> FLEXIBLE;
-DEFINE FIELD last_discovery ON mcp_server TYPE option<datetime>;
-DEFINE FIELD tool_count ON mcp_server TYPE int DEFAULT 0;
-DEFINE FIELD created_at ON mcp_server TYPE datetime DEFAULT time::now();
+DEFINE FIELD OVERWRITE last_error ON mcp_server TYPE option<string>;
+DEFINE FIELD OVERWRITE server_info ON mcp_server TYPE option<object> FLEXIBLE;
+DEFINE FIELD OVERWRITE capabilities ON mcp_server TYPE option<object> FLEXIBLE;
+DEFINE FIELD OVERWRITE last_discovery ON mcp_server TYPE option<datetime>;
+DEFINE FIELD OVERWRITE tool_count ON mcp_server TYPE int DEFAULT 0;
+DEFINE FIELD OVERWRITE created_at ON mcp_server TYPE datetime DEFAULT time::now();
 
-DEFINE INDEX idx_mcp_server_workspace ON mcp_server FIELDS workspace;
-DEFINE INDEX idx_mcp_server_workspace_name ON mcp_server FIELDS workspace, name UNIQUE;
+DEFINE INDEX OVERWRITE idx_mcp_server_workspace ON mcp_server FIELDS workspace;
+DEFINE INDEX OVERWRITE idx_mcp_server_workspace_name ON mcp_server FIELDS workspace, name UNIQUE;
 
 -- ---------------------------------------------------------------------------
 -- source_server: Link from mcp_tool to its originating mcp_server

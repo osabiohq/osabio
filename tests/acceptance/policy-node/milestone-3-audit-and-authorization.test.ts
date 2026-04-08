@@ -5,7 +5,7 @@
  *
  * Validates policy evaluation trace persistence, audit event extensions,
  * policy CRUD authorization (human-only), missing field handling,
- * and condition validation.
+ * and multi-condition Rego rules.
  *
  * Driving ports:
  *   Direct DB for policy trace queries and audit events
@@ -33,13 +33,13 @@ const getRuntime = setupOrchestratorSuite("policy_m3_audit_authz");
 
 describe("Milestone 3: Policy Evaluation Trace (US-7)", () => {
   // ---------------------------------------------------------------------------
-  // US-7: Evaluation trace records all rules evaluated
-  // AC-7
+  // US-7: Evaluation trace records all policies evaluated
+  // AC-7 — with Rego: one trace entry per policy (not per rule)
   // ---------------------------------------------------------------------------
-  it("intent evaluation trace contains entries for every rule evaluated across multiple policies", async () => {
+  it("intent evaluation trace contains entries for every policy evaluated", async () => {
     const { baseUrl, surreal } = getRuntime();
 
-    // Given two policies with a total of 3 rules
+    // Given two active Rego policies
     const user = await createTestUser(baseUrl, "m3-trace");
     const workspace = await createTestWorkspace(baseUrl, user);
     const adminId = await createTestIdentity(surreal, "admin-1", "human", workspace.workspaceId);
@@ -47,31 +47,26 @@ describe("Milestone 3: Policy Evaluation Trace (US-7)", () => {
 
     const { policyId: p1 } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Budget Policy",
-      rules: [
-        {
-          id: "small_spend",
-          condition: { field: "budget_limit.amount", operator: "lte", value: 500 },
-          effect: "allow",
-          priority: 10,
-        },
-        {
-          id: "large_spend_block",
-          condition: { field: "budget_limit.amount", operator: "gt", value: 5000 },
-          effect: "deny",
-          priority: 90,
-        },
-      ],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.budget_limit.amount <= 500
+}
+deny contains msg if {
+  input.budget_limit.amount > 5000
+  msg := "Spend exceeds cap"
+}`,
     });
     await activatePolicy(surreal, p1, adminId, workspace.workspaceId);
 
     const { policyId: p2 } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Action Guard",
-      rules: [{
-        id: "no_delete",
-        condition: { field: "action_spec.action", operator: "eq", value: "delete" },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.action_spec.action == "delete"
+  msg := "Delete not permitted"
+}`,
     });
     await activatePolicy(surreal, p2, adminId, workspace.workspaceId);
 
@@ -84,11 +79,10 @@ describe("Milestone 3: Policy Evaluation Trace (US-7)", () => {
     });
     await submitIntent(surreal, intentId);
 
-    // Then the policy trace has entries for all 3 rules
+    // Then the policy trace has one entry per policy (2 total)
     const fullTrace: PolicyTraceEntry[] = [
-      { policy_id: p2, policy_version: 1, rule_id: "no_delete", effect: "deny", matched: false, priority: 100 },
-      { policy_id: p1, policy_version: 1, rule_id: "large_spend_block", effect: "deny", matched: false, priority: 90 },
-      { policy_id: p1, policy_version: 1, rule_id: "small_spend", effect: "allow", matched: true, priority: 10 },
+      { policy_id: p1, policy_version: 1, rule_id: `policy:${p1}`, effect: "allow", matched: true, priority: 10 },
+      { policy_id: p2, policy_version: 1, rule_id: `policy:${p2}`, effect: "deny", matched: false, priority: 10 },
     ];
 
     await simulatePolicyGateResult(surreal, intentId, {
@@ -103,7 +97,7 @@ describe("Milestone 3: Policy Evaluation Trace (US-7)", () => {
     const record = await getIntentRecord(surreal, intentId);
     const trace = (record.evaluation as Record<string, unknown>)?.policy_trace as PolicyTraceEntry[];
     expect(trace).toBeDefined();
-    expect(trace).toHaveLength(3);
+    expect(trace).toHaveLength(2);
 
     // And each entry has the required fields
     for (const entry of trace) {
@@ -130,12 +124,11 @@ describe("Milestone 3: Policy Evaluation Trace (US-7)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Test Shape Policy",
-      rules: [{
-        id: "shape_rule",
-        condition: { field: "action_spec.action", operator: "eq", value: "test" },
-        effect: "allow",
-        priority: 1,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.action_spec.action == "test"
+}`,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -154,10 +147,10 @@ describe("Milestone 3: Policy Evaluation Trace (US-7)", () => {
       policy_trace: [{
         policy_id: policyId,
         policy_version: 1,
-        rule_id: "shape_rule",
+        rule_id: `policy:${policyId}`,
         effect: "allow",
         matched: true,
-        priority: 1,
+        priority: 10,
       }],
     }, "authorized");
 
@@ -194,12 +187,11 @@ describe("Milestone 3: Audit Event Extensions (US-8)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Audit Test Policy",
-      rules: [{
-        id: "audit_rule",
-        condition: { field: "action_spec.action", operator: "eq", value: "test" },
-        effect: "allow",
-        priority: 1,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.action_spec.action == "test"
+}`,
     });
 
     // When lifecycle events are recorded
@@ -221,14 +213,15 @@ describe("Milestone 3: Audit Event Extensions (US-8)", () => {
   }, 120_000);
 });
 
-describe("Milestone 3: Rule Condition Error Handling (AC-11)", () => {
+describe("Milestone 3: Rego Missing Field Handling (AC-11)", () => {
   // ---------------------------------------------------------------------------
-  // AC-11: Missing field in intent context returns false (non-matching)
+  // AC-11: Rego handles missing intent context fields gracefully
+  // Rego undefined field access = false (non-matching) by default
   // ---------------------------------------------------------------------------
-  it("rule referencing a missing intent field returns false and evaluation continues", async () => {
+  it("Rego deny rule referencing a missing intent field does not match and evaluation continues", async () => {
     const { baseUrl, surreal } = getRuntime();
 
-    // Given a policy with a rule that references a field not present on the intent
+    // Given a policy with a deny rule that checks budget_limit.amount
     const user = await createTestUser(baseUrl, "m3-missing-field");
     const workspace = await createTestWorkspace(baseUrl, user);
     const adminId = await createTestIdentity(surreal, "admin-1", "human", workspace.workspaceId);
@@ -236,25 +229,25 @@ describe("Milestone 3: Rule Condition Error Handling (AC-11)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Budget Guard",
-      rules: [{
-        id: "budget_check",
-        condition: { field: "budget_limit.amount", operator: "gt", value: 10000 },
-        effect: "deny",
-        priority: 50,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+deny contains msg if {
+  input.budget_limit.amount > 10000
+  msg := "Budget exceeds cap"
+}`,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
-    // When the agent submits an intent WITHOUT budget_limit
+    // When the agent submits an intent WITHOUT budget_limit (missing field)
     const { intentId } = await createDraftIntent(surreal, workspace.workspaceId, agentId, {
       goal: "Read configuration file",
       reasoning: "Need to check current settings",
       action_spec: { provider: "file_editor", action: "read_file", params: {} },
-      // No budget_limit
+      // No budget_limit — Rego undefined field access returns undefined, deny rule does not match
     });
     await submitIntent(surreal, intentId);
 
-    // Then the deny rule does not match (missing field = false)
+    // Then the deny rule does not match (Rego handles undefined gracefully)
     // And the intent passes through to LLM evaluation
     await simulatePolicyGateResult(surreal, intentId, {
       decision: "APPROVE",
@@ -264,10 +257,10 @@ describe("Milestone 3: Rule Condition Error Handling (AC-11)", () => {
       policy_trace: [{
         policy_id: policyId,
         policy_version: 1,
-        rule_id: "budget_check",
+        rule_id: `policy:${policyId}`,
         effect: "deny",
         matched: false,
-        priority: 50,
+        priority: 10,
       }],
     }, "authorized");
 
@@ -287,20 +280,17 @@ describe("Milestone 3: Policy Authorization Model (AC-12)", () => {
     const workspace = await createTestWorkspace(baseUrl, user);
     const humanId = await createTestIdentity(surreal, "human-admin", "human", workspace.workspaceId);
 
-    // When a human creates a policy
+    // When a human creates a policy with Rego source
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, humanId, {
       title: "Human-Created Policy",
-      rules: [{
-        id: "human_rule",
-        condition: { field: "action_spec.action", operator: "eq", value: "create" },
-        effect: "allow",
-        priority: 1,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.action_spec.action == "create"
+}`,
     });
 
     // Then the policy exists with created_by pointing to the human identity
-    const record = await getIntentRecord(surreal, policyId).catch(() => null);
-    // Policy creation succeeds (verified by getPolicyRecord)
     const { getPolicyRecord } = await import("./policy-test-kit");
     const policy = await getPolicyRecord(surreal, policyId);
     expect(policy.title).toBe("Human-Created Policy");
@@ -330,14 +320,15 @@ describe("Milestone 3: Policy Authorization Model (AC-12)", () => {
   }, 120_000);
 });
 
-describe("Milestone 3: AND-Joined Predicate Conditions", () => {
+describe("Milestone 3: Rego Multi-Condition Rules", () => {
   // ---------------------------------------------------------------------------
-  // FR-1a: Multiple predicates AND-joined in a single rule
+  // FR-1a: Multiple conditions AND-joined in a single Rego rule
+  // Rego naturally supports AND-joining within a rule body
   // ---------------------------------------------------------------------------
-  it("rule with AND-joined conditions only matches when all predicates are true", async () => {
+  it("Rego rule with AND-joined conditions only matches when all predicates are true", async () => {
     const { baseUrl, surreal } = getRuntime();
 
-    // Given a policy with an AND-joined condition (budget <= 500 AND action is "pay")
+    // Given a policy with an AND-joined Rego rule (budget <= 500 AND action is "pay")
     const user = await createTestUser(baseUrl, "m3-and-join");
     const workspace = await createTestWorkspace(baseUrl, user);
     const adminId = await createTestIdentity(surreal, "admin-1", "human", workspace.workspaceId);
@@ -345,15 +336,12 @@ describe("Milestone 3: AND-Joined Predicate Conditions", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Small Payment Auto-Approve",
-      rules: [{
-        id: "small_pay",
-        condition: [
-          { field: "budget_limit.amount", operator: "lte", value: 500 },
-          { field: "action_spec.action", operator: "eq", value: "pay" },
-        ],
-        effect: "allow",
-        priority: 20,
-      }],
+      rego_source: `package osabio.policy
+default allow := false
+allow if {
+  input.budget_limit.amount <= 500
+  input.action_spec.action == "pay"
+}`,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -375,15 +363,16 @@ describe("Milestone 3: AND-Joined Predicate Conditions", () => {
       policy_trace: [{
         policy_id: policyId,
         policy_version: 1,
-        rule_id: "small_pay",
+        rule_id: `policy:${policyId}`,
         effect: "allow",
         matched: true,
-        priority: 20,
+        priority: 10,
       }],
     }, "authorized");
 
     const record = await getIntentRecord(surreal, intentId);
-    const trace = (record.evaluation as Record<string, unknown>)?.policy_trace as PolicyTraceEntry[];
-    expect(trace[0].matched).toBe(true);
+    expect(record.status).toBe("authorized");
+    const trace = (record.evaluation as Record<string, unknown>)?.policy_trace as Record<string, unknown>[];
+    expect(trace[0]?.matched).toBe(true);
   }, 120_000);
 });

@@ -16,7 +16,7 @@ DEFINE FIELD OVERWRITE external_session_id ON agent_session TYPE option<string>;
 UPDATE agent_session SET external_session_id = opencode_session_id WHERE opencode_session_id IS NOT NONE;
 
 -- Step 3: Remove the old field
-REMOVE FIELD opencode_session_id ON agent_session;
+REMOVE FIELD IF EXISTS opencode_session_id ON agent_session;
 
 -- Composite index for session lookup by external ID within a workspace
 DEFINE INDEX OVERWRITE agent_session_external_workspace ON agent_session FIELDS external_session_id, workspace;
