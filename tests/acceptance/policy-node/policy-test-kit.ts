@@ -218,6 +218,10 @@ export async function simulatePolicyGateResult(
     policy_only: boolean;
     policy_trace: PolicyTraceEntry[];
     human_veto_required?: boolean;
+    evidence_requirement?: {
+      min_count: number;
+      required_types: string[];
+    };
   },
   resultStatus: "authorized" | "pending_veto" | "vetoed",
 ): Promise<void> {
@@ -232,6 +236,9 @@ export async function simulatePolicyGateResult(
   };
   if (result.human_veto_required !== undefined) {
     evalContent.human_veto_required = result.human_veto_required;
+  }
+  if (result.evidence_requirement !== undefined) {
+    evalContent.evidence_requirement = result.evidence_requirement;
   }
 
   const updates: Record<string, unknown> = {

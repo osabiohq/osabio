@@ -613,6 +613,9 @@ DEFINE FIELD evaluation.policy_trace[*].effect ON intent TYPE string ASSERT $val
 DEFINE FIELD evaluation.policy_trace[*].matched ON intent TYPE bool;
 DEFINE FIELD evaluation.policy_trace[*].priority ON intent TYPE int;
 DEFINE FIELD evaluation.human_veto_required ON intent TYPE option<bool>;
+DEFINE FIELD evaluation.evidence_requirement ON intent TYPE option<object>;
+DEFINE FIELD evaluation.evidence_requirement.min_count ON intent TYPE option<int>;
+DEFINE FIELD evaluation.evidence_requirement.required_types ON intent TYPE option<array<string>>;
 DEFINE FIELD veto_expires_at ON intent TYPE option<datetime>;
 DEFINE FIELD veto_reason ON intent TYPE option<string>;
 DEFINE FIELD error_reason ON intent TYPE option<string>;
