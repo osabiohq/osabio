@@ -34,12 +34,8 @@ function createStubSurreal(policies: Array<{
   title: string;
   description?: string;
   agentRole?: string;
-  rules: Array<{
-    id: string;
-    effect: "allow" | "deny";
-    priority: number;
-    condition: { field: string; operator: string; value: unknown };
-  }>;
+  regoSource?: string;
+  version?: number;
 }>, options?: { dailyBudget?: number; todaySpend?: number }) {
   return {
     query: async (sql: string, params?: Record<string, unknown>) => {
@@ -49,8 +45,9 @@ function createStubSurreal(policies: Array<{
           id: new RecordId("policy", p.id),
           title: p.title,
           description: p.description,
+          version: p.version ?? 1,
           selector: { agent_role: p.agentRole },
-          rules: p.rules,
+          rego_source: p.regoSource ?? "package osabio.policy\ndefault allow = true",
           status: "active",
         }))];
       }
@@ -90,12 +87,7 @@ describe("Proxy Policy Evaluator", () => {
         id: "pol-1",
         title: "Coding Agent Models",
         agentRole: "coding-agent",
-        rules: [{
-          id: "model_access",
-          effect: "deny",
-          priority: 100,
-          condition: { field: "model", operator: "not_in", value: ["claude-sonnet-4-20250514", "claude-opus-4-20250514"] },
-        }],
+        regoSource: 'package osabio.policy\ndefault allow = false\nallow if { input.action_spec.params.model in {"claude-sonnet-4-20250514", "claude-opus-4-20250514"} }',
       }]);
 
       const result = await evaluateProxyPolicy(
@@ -112,12 +104,7 @@ describe("Proxy Policy Evaluator", () => {
         title: "Observer Models",
         description: "Observer can only use haiku",
         agentRole: "observer",
-        rules: [{
-          id: "model_access",
-          effect: "deny",
-          priority: 100,
-          condition: { field: "model", operator: "not_in", value: ["claude-3-5-haiku-20241022"] },
-        }],
+        regoSource: 'package osabio.policy\ndefault allow = false\nallow if { input.action_spec.params.model in {"claude-3-5-haiku-20241022"} }',
       }]);
 
       const result = await evaluateProxyPolicy(
@@ -130,7 +117,6 @@ describe("Proxy Policy Evaluator", () => {
         expect(result.status).toBe(403);
         expect(result.body.error).toBe("policy_violation");
         expect(result.body.policy_ref).toBe("pol-1");
-        expect(result.body.model_suggestion).toContain("claude-3-5-haiku-20241022");
         expect(result.body.remediation).toContain("observer");
       }
     });
@@ -140,12 +126,7 @@ describe("Proxy Policy Evaluator", () => {
         id: "pol-1",
         title: "Observer Only Policy",
         agentRole: "observer",
-        rules: [{
-          id: "model_access",
-          effect: "deny",
-          priority: 100,
-          condition: { field: "model", operator: "not_in", value: ["claude-3-5-haiku-20241022"] },
-        }],
+        regoSource: 'package osabio.policy\ndefault allow = false\nallow if { input.action_spec.params.model in {"claude-3-5-haiku-20241022"} }',
       }]);
 
       // coding-agent is not observer, so policy should not apply

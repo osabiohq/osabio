@@ -157,10 +157,15 @@ const extractAllowValue = (engine: RegorusEngine): boolean => {
 const extractDenyMessages = (engine: RegorusEngine): string[] => {
   const raw = engine.evalQuery(`${POLICY_DATA_PATH}.deny`);
   const value = extractQueryValue(raw);
-  if (!Array.isArray(value)) {
-    return [];
+  // Regorus v1 serializes partial sets as {key: true} objects, not arrays.
+  // Arrays are kept for forward-compatibility if Regorus changes this behavior.
+  if (Array.isArray(value)) {
+    return value.filter((msg): msg is string => typeof msg === "string");
   }
-  return value.filter((msg): msg is string => typeof msg === "string");
+  if (value !== null && typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>);
+  }
+  return [];
 };
 
 const extractEvidenceRequirement = (

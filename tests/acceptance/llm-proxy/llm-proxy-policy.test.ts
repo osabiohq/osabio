@@ -46,6 +46,16 @@ async function createProxyModelPolicy(
     content: { created_at: new Date() },
   }).catch(() => undefined); // ignore if exists
 
+  // Generate Rego that allows only the specified models via action_spec.params.model
+  const allowedSet = options.allowedModels.map((m) => `"${m}"`).join(", ");
+  const regoSource = [
+    "package osabio.policy",
+    "",
+    "default allow = false",
+    "",
+    `allow if { input.action_spec.params.model in {${allowedSet}} }`,
+  ].join("\n");
+
   await surreal.query(`CREATE $policy CONTENT $content;`, {
     policy: policyRecord,
     content: {
@@ -57,7 +67,7 @@ async function createProxyModelPolicy(
       workspace: workspaceRecord,
       created_by: identityRecord,
       human_veto_required: false,
-      rego_source: "package osabio.policy\ndefault allow = true",
+      rego_source: regoSource,
       created_at: new Date(),
     },
   });
