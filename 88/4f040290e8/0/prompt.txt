@@ -1,0 +1,46 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain-v1/san-francisco-v2 directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+By default, the user will only see the last message that you send before stopping. Include all essential information in the last message. The intermediate messages will be collapsed and accessible by the user but not displayed by default.
+
+If the user asks you to work on several unrelated tasks, you can suggest they start new workspaces.
+Sometimes the user might send you a message they meant to send in a different workspace or a different chat. If something doesn't make sense in the context of your work, just ask. 
+If the user asks for help with Conductor, you can ask them to go to "Help -> Send Feedback" to get in touch with our team.
+</system_instruction>
+
+marcus@Marcuss-MacBook-Pro san-francisco-v2 % bun seed
+$ bun run --env-file=.env schema/seed.ts
+Seeding "Acme Analytics" workspace...
+  ✓ Workspace
+  ✓ Identities (1 human + 3 agents)
+  ✓ Projects (2) + Features (5)
+  ✓ Tasks (10, all 7 statuses + deps + subtask)
+  ✓ Decisions (7, all statuses + conflict + supersede)
+  ✓ Questions (3, open/blocking + answered)
+  ✓ Conversations (2) + Messages (8)
+  ✓ Agent Sessions (3) + Traces (6)
+  ✓ Observations (12, all severities × types)
+  ✓ Suggestions (6, all categories + statuses)
+  ✓ Learnings (7, all types + statuses + sources)
+Seed failed: 6325 |             case "Query": return new QueryError(options);
+6326 |          case "Serialization": return new SerializationError(options);
+6327 |          case "NotAllowed": return new NotAllowedError(options);
+6328 |          case "NotFound": return new NotFoundError(options);
+6329 |          case "AlreadyExists": return new AlreadyExistsError(options);
+6330 |          case "Internal": return new InternalError(options);
+                                 ^
+error: Couldn't coerce value for field `rego_source` of `policy:`001149c9-7a44-47e5-9565-cfe627cc89b0``: Expected `string` but found `NONE`
+    kind: "Internal",
+    code: 0,
+ details: undefined,
+      at createServerError (/Users/marcus/conductor/workspaces/brain-v1/san-francisco-v2/node_modules/surrealdb/dist/surrealdb.mjs:6330:27)
+      at query (/Users/marcus/conductor/workspaces/brain-v1/san-francisco-v2/node_modules/surrealdb/dist/surrealdb.mjs:6589:25)
+error: script "seed" exited with code 1
+marcus@Marcuss-MacBook-Pro san-francisco-v2 %
+
+---
+
+Commit and push all changes
