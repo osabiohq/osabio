@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "3d937600ed0d",
+  "session_id": "c986df0c-cae9-448f-9de1-b5458191daa9",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T05:02:22.608519Z",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/llm-proxy/llm-proxy-audit.test.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-policy.test.ts",
+    "tests/acceptance/skill/skill-test-kit.ts",
+    "tests/acceptance/tool-registry-ui/tool-registry-ui-test-kit.ts",
+    "tests/acceptance/tool-registry/tool-registry-test-kit.ts",
+    "tests/acceptance/graph/graph-governance-visualization.test.ts",
+    "tests/acceptance/graph/graph-relationships.test.ts",
+    "tests/acceptance/remove-embeddings/bm25-indexes.test.ts",
+    "tests/acceptance/agent-learnings/learning-test-kit.ts",
+    "tests/acceptance/dynamic-behaviors/authorizer-integration.test.ts",
+    "tests/acceptance/dynamic-behaviors/walking-skeleton.test.ts",
+    "tests/acceptance/objective-behavior/behavior-policy.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-2-policy-creation.test.ts",
+    "tests/acceptance/intent-evidence/milestone-3-policy-monitoring.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-4-policy-detail.test.ts",
+    "tests/acceptance/agent-mcp-governance.test.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-test-kit.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "a43abfbe3f07",
+  "token_usage": {
+    "input_tokens": 1785,
+    "cache_creation_tokens": 298675,
+    "cache_read_tokens": 11720025,
+    "output_tokens": 39154,
+    "api_call_count": 94
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T05:02:21.664842Z",
+    "agent_lines": 16,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 16,
+    "agent_percentage": 100
+  }
+}

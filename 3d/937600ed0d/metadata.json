@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "3d937600ed0d",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/agent-learnings/learning-test-kit.ts",
+    "tests/acceptance/agent-mcp-governance.test.ts",
+    "tests/acceptance/dynamic-behaviors/authorizer-integration.test.ts",
+    "tests/acceptance/dynamic-behaviors/walking-skeleton.test.ts",
+    "tests/acceptance/graph/graph-governance-visualization.test.ts",
+    "tests/acceptance/graph/graph-relationships.test.ts",
+    "tests/acceptance/intent-evidence/milestone-3-policy-monitoring.test.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-audit.test.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-policy.test.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-test-kit.ts",
+    "tests/acceptance/objective-behavior/behavior-policy.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-2-policy-creation.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-4-policy-detail.test.ts",
+    "tests/acceptance/remove-embeddings/bm25-indexes.test.ts",
+    "tests/acceptance/skill/skill-test-kit.ts",
+    "tests/acceptance/tool-registry-ui/tool-registry-ui-test-kit.ts",
+    "tests/acceptance/tool-registry/tool-registry-test-kit.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/3d/937600ed0d/0/metadata.json",
+      "transcript": "/3d/937600ed0d/0/full.jsonl",
+      "context": "/3d/937600ed0d/0/context.md",
+      "content_hash": "/3d/937600ed0d/0/content_hash.txt",
+      "prompt": "/3d/937600ed0d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1785,
+    "cache_creation_tokens": 298675,
+    "cache_read_tokens": 11720025,
+    "output_tokens": 39154,
+    "api_call_count": 94
+  }
+}
