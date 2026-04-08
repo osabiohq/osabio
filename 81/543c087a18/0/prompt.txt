@@ -1,0 +1,434 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain-v1/hangzhou directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+By default, the user will only see the last message that you send before stopping. Include all essential information in the last message. The intermediate messages will be collapsed and accessible by the user but not displayed by default.
+
+If the user asks you to work on several unrelated tasks, you can suggest they start new workspaces.
+Sometimes the user might send you a message they meant to send in a different workspace or a different chat. If something doesn't make sense in the context of your work, just ask. 
+If the user asks for help with Conductor, you can ask them to go to "Help -> Send Feedback" to get in touch with our team.
+</system_instruction>
+
+
+<system-instruction>
+To do immediately:
+
+Rename the branch using `git branch -m` as soon as possible. Do not check the current branch name.
+
+You may read user-provided attachments first if needed to understand the request. Otherwise, do this before using any skills or any other tools.
+
+Choosing a branch name: use concrete, specific language, avoid abstract nouns, and be concise (<30 characters). Use the prefix "marcus-sa/" before the name.
+
+</system-instruction>
+
+/nw-discover we currently support proxying mcp tools and evaluating policies, but what about http requests? we could evaluate policies for any http requests that a sandboxed agent executes by specifying the HTTP_PROXY env var when creating the session
+
+---
+
+Base directory for this skill: /Users/marcus/.claude/skills/nw-discover
+
+# NW-DISCOVER: Evidence-Based Product Discovery
+
+**Wave**: DISCOVER | **Agent**: Scout (nw-product-discoverer)
+
+## Overview
+
+Execute evidence-based product discovery through assumption testing and market validation. First wave in nWave (DISCOVER > DISCUSS > DESIGN > DEVOPS > DISTILL > DELIVER).
+
+Scout establishes product-market fit through rigorous customer development using Mom Test interviewing principles and continuous discovery practices.
+
+## Context Files Required
+
+- docs/project-brief.md — Initial product vision (if available)
+- docs/market-context.md — Market research and competitive landscape (if available)
+
+## Previous Artifacts
+
+None (DISCOVER is the first wave).
+
+## Wave Decisions Summary
+
+Before completing DISCOVER, produce `docs/feature/{feature-id}/discover/wave-decisions.md`:
+
+```markdown
+# DISCOVER Decisions — {feature-id}
+
+## Key Decisions
+- [D1] {decision}: {rationale} (see: {source-file})
+
+## Constraints Established
+- {constraint from evidence}
+
+## Validated Assumptions
+- {assumption validated by evidence, with confidence level}
+
+## Invalidated Assumptions
+- {assumption disproved, with evidence reference}
+```
+
+This summary enables downstream waves to quickly assess DISCOVER outcomes without reading all artifacts.
+
+## Document Update (Back-Propagation)
+
+Not applicable (DISCOVER is the first wave — no prior documents to update).
+
+## Agent Invocation
+
+@nw-product-discoverer
+
+Execute \*discover for {product-concept-name}.
+
+**Context Files:** docs/project-brief.md (if available) | docs/market-context.md (if available)
+
+**Configuration:**
+- interactive: high | output_format: markdown
+- interview_depth: comprehensive | evidence_standard: past_behavior
+
+## Peer Review Gate
+
+BEFORE handoff to DISCUSS, dispatch `@nw-product-discoverer-reviewer` to review discovery artifacts. BLOCK on rejection.
+
+Review scope:
+- Evidence quality (past behavior, not future intent)
+- Interview coverage and threshold compliance
+- Assumption validation rigor (G1-G4 gates)
+- Lean canvas coherence with interview findings
+
+On REJECTION: revise artifacts per reviewer findings and re-submit. Max 2 attempts before escalating to user.
+
+## Success Criteria
+
+Refer to Scout's quality gates in ~/.claude/agents/nw/nw-product-discoverer.md.
+
+- [ ] All 4 decision gates passed (G1-G4)
+- [ ] Minimum interview thresholds met per phase
+- [ ] Evidence quality standards met (past behavior, not future intent)
+- [ ] Peer review approved by @nw-product-discoverer-reviewer
+- [ ] Handoff accepted by product-owner (DISCUSS wave)
+
+## Next Wave
+
+**Handoff To**: nw-product-owner (DISCUSS wave)
+**Deliverables**: See Scout's handoff package specification in agent file
+
+## Examples
+
+### Example 1: New SaaS product discovery
+```
+/nw-discover invoice-automation
+```
+Scout conducts customer development interviews, validates problem-solution fit through Mom Test questioning, and produces a lean canvas with evidence-backed assumptions.
+
+## Expected Outputs
+
+```
+docs/feature/{feature-id}/discover/
+  problem-validation.md
+  opportunity-tree.md
+  solution-testing.md
+  lean-canvas.md
+  interview-log.md
+  wave-decisions.md
+```
+
+
+ARGUMENTS: We currently support proxying MCP tools and evaluating policies against them, but what about HTTP requests? We could evaluate policies for any HTTP requests that a sandboxed agent executes by specifying the HTTP_PROXY env var when creating the sandbox session. This would let us intercept, inspect, and govern all outbound HTTP traffic from sandboxed agents — not just MCP tool calls. Explore whether this is a real problem worth solving, what the opportunity looks like, and validate assumptions around agent HTTP traffic governance.
+
+---
+
+"connect" but is this enough if we want to evaluate not just domains, but the post request payloads for specific endpoints?
+
+---
+
+we already know what would need payload inspection... its self explanatory: external systems such as stripe
+
+---
+
+Continue from where you left off.
+
+---
+
+the agent does not have the api key .... these are specified in our system
+
+---
+
+WHY DO YOU KEEP MENTIONING MCP TOOLS. THIS HAS NOTHING TO DO WITH MCP
+
+---
+
+WHAT THE FUCK DO YOI THINK. WE NEED TO GOVERN POST REQUESTS
+
+---
+
+why do we need tls mitm to proxy https requests?
+
+---
+
+this assumes that the agent can modify the base url
+
+---
+
+"The main complexity is CA management and dynamic certificate generation" is there a nodejs library for this?
+
+---
+
+create github issue
+
+---
+
+shouldnt we set both HTTPS_PROXY and HTTP_PROXY ?
+
+---
+
+similar to mcp tools, we'll need a way to define credentials/headers for proxied http requests ideally per domain. we'll also need a way to define policies for these http requests, using e.g regex for the endpoints
+
+---
+
+Base directory for this skill: /Users/marcus/.claude/skills/nw-discuss
+
+# NW-DISCUSS: Jobs-to-be-Done Analysis, UX Journey Design, and Requirements Gathering
+
+**Wave**: DISCUSS (wave 2 of 6) | **Agent**: Luna (nw-product-owner) | **Command**: `/nw-discuss`
+
+## Overview
+
+Execute DISCUSS wave through Luna's integrated workflow: JTBD analysis|UX journey discovery|emotional arc design|shared artifact tracking|requirements gathering|user story creation|acceptance criteria definition. Luna uncovers jobs users accomplish, maps to journeys and requirements, handles complete lifecycle from user motivations through DoR-validated stories ready for DESIGN. Establishes ATDD foundation.
+
+For greenfield projects (no src/ code, no docs/feature/ history), Luna proposes Walking Skeleton as Feature 0.
+
+## Interactive Decision Points
+
+### Decision 1: Feature Type
+**Question**: What type of feature is this?
+**Options**:
+1. User-facing -- UI/UX functionality visible to end users
+2. Backend -- APIs, services, data processing
+3. Infrastructure -- DevOps, CI/CD, tooling
+4. Cross-cutting -- Spans multiple layers (auth, logging, etc.)
+5. Other -- user provides custom input
+
+### Decision 2: Walking Skeleton
+**Question**: Should we start with a walking skeleton?
+**Options**:
+1. Yes -- recommended for greenfield projects
+2. Depends -- brownfield; Luna evaluates existing structure first
+3. No -- feature is isolated enough to skip
+
+### Decision 3: UX Research Depth
+**Question**: Priority for UX research depth?
+**Options**:
+1. Lightweight -- quick journey map, focus on happy path
+2. Comprehensive -- full experience mapping with emotional arcs
+3. Deep-dive -- extensive user research, multiple personas, edge cases
+
+### Decision 4: JTBD Analysis
+**Question**: Include Jobs-to-be-Done analysis?
+**Options**:
+1. Yes -- recommended when user motivations are unclear or multiple jobs compete
+2. No -- skip JTBD, proceed directly to journey design (default)
+
+## Prior Wave Consultation
+
+Before beginning DISCUSS work, read prior wave artifacts and project context:
+
+1. **Project context**: `docs/project-brief.md` | `docs/stakeholders.yaml` | `docs/architecture/constraints.md`
+2. **DISCOVER artifacts**: Read all files in `docs/feature/{feature-id}/discover/`
+
+DISCUSS is the direct successor to DISCOVER — reading all DISCOVER artifacts is appropriate since DISCUSS must synthesize raw evidence into structured requirements.
+
+**READING ENFORCEMENT**: You MUST read every file listed in Prior Wave Consultation above using the Read tool before proceeding. After reading, output a confirmation checklist (`✓ {file}` for each read, `⊘ {file} (not found)` for missing). Do NOT skip files that exist — skipping causes requirements disconnected from evidence.
+
+After reading, check whether any DISCUSS decisions would contradict DISCOVER evidence. Flag contradictions and resolve with user before proceeding. Example: DISCOVER found "users don't want automation" but DISCUSS story assumes "automated workflow" — this must be resolved.
+
+## Document Update (Back-Propagation)
+
+When DISCUSS decisions change assumptions established in DISCOVER:
+1. Document the change in a `## Changed Assumptions` section at the end of the affected DISCUSS artifact
+2. Reference the original DISCOVER document and quote the original assumption
+3. State the new assumption and the rationale for the change
+4. Do NOT modify DISCOVER documents directly — they represent historical evidence
+
+## Agent Invocation
+
+@nw-product-owner
+
+IF Decision 4 = Yes: Execute *jtbd-analysis for {feature-id}, then *journey informed by JTBD artifacts, then *story-map, then *gather-requirements with outcome KPIs.
+IF Decision 4 = No (default): Execute *journey for {feature-id}, then *story-map, then *gather-requirements with outcome KPIs.
+
+Context files: see Prior Wave Consultation above + project context files.
+
+**Configuration:**
+- format: visual | yaml | gherkin | all (default: all)
+- research_depth: {Decision 3} | interactive: high | output_format: markdown
+- elicitation_depth: comprehensive | feature_type: {Decision 1}
+- walking_skeleton: {Decision 2}
+- output_directory: docs/feature/{feature-id}/discuss/
+
+**Phase 1 -- Jobs-to-be-Done Analysis (OPTIONAL -- when Decision 4 = Yes):**
+
+Grounds all subsequent artifacts in real user motivations.
+
+1. **Job Discovery**: Ask user what users are trying to accomplish. Capture in job story format: "When [situation], I want to [motivation], so I can [outcome]."
+2. **Job Dimensions**: For each job — functional (practical task)|emotional (desired feeling)|social (desired perception)
+3. **Four Forces Analysis**: For each primary job:
+   - **Push** (current frustration): "What frustrated users enough to request this?"
+   - **Pull** (desired future): "What could they do that they cannot now?"
+   - **Anxiety** (adoption concerns): "What concerns about adopting this?"
+   - **Habit** (current behavior): "What behavior must change?"
+   If interview transcripts|support tickets|analytics exist, extract forces from those instead of relying solely on user description.
+4. **Opportunity Scoring** (multiple jobs): Rank by importance vs. satisfaction gap. High importance + low satisfaction = strongest opportunities. Produce scored table.
+5. **JTBD-to-Story Bridge**: Each job story feeds into user stories and acceptance criteria in Phase 3. Every user story must trace to at least one job.
+
+| Artifact | Path |
+|----------|------|
+| Job Stories | `docs/feature/{feature-id}/discuss/jtbd-job-stories.md` |
+| Four Forces | `docs/feature/{feature-id}/discuss/jtbd-four-forces.md` |
+| Opportunity Scores | `docs/feature/{feature-id}/discuss/jtbd-opportunity-scores.md` (when multiple jobs) |
+
+**Phase 2 -- Journey Design:**
+
+Luna runs deep discovery (mental model|emotional arc|shared artifacts|error paths) informed by JTBD, produces visual journey + YAML schema + Gherkin scenarios. Each journey maps to one or more identified jobs.
+
+| Artifact | Path |
+|----------|------|
+| Visual Journey | `docs/feature/{feature-id}/discuss/journey-{name}-visual.md` |
+| Journey Schema | `docs/feature/{feature-id}/discuss/journey-{name}.yaml` |
+| Gherkin Scenarios | `docs/feature/{feature-id}/discuss/journey-{name}.feature` |
+| Artifact Registry | `docs/feature/{feature-id}/discuss/shared-artifacts-registry.md` |
+
+**Phase 2.5 -- User Story Mapping:**
+Luna loads `user-story-mapping` skill before this phase.
+
+Organizes discovered stories into a visual story map (backbone → walking skeleton → incremental slices). Produces prioritization suggestions based on outcomes identified in earlier phases.
+
+1. **Backbone**: Map user activities (big steps) horizontally across the top
+2. **Walking Skeleton**: Identify minimum slice that delivers end-to-end value
+3. **Release Slices**: Group stories into outcome-based releases
+4. **Prioritization**: Suggest priority order based on outcome impact and dependencies
+
+| Artifact | Path |
+|----------|------|
+| Story Map | `docs/feature/{feature-id}/discuss/story-map.md` |
+| Prioritization | `docs/feature/{feature-id}/discuss/prioritization.md` |
+
+**Phase 3 -- Requirements and User Stories:**
+
+Luna crafts LeanUX stories informed by JTBD + journey artifacts. Every story traces to at least one job story. Validates against DoR, invokes peer review, prepares handoff.
+
+| Artifact | Path |
+|----------|------|
+| Requirements | `docs/feature/{feature-id}/discuss/requirements.md` |
+| User Stories | `docs/feature/{feature-id}/discuss/user-stories.md` |
+| Acceptance Criteria | `docs/feature/{feature-id}/discuss/acceptance-criteria.md` |
+| DoR Checklist | `docs/feature/{feature-id}/discuss/dor-checklist.md` |
+| Outcome KPIs | `docs/feature/{feature-id}/discuss/outcome-kpis.md` |
+
+## Success Criteria
+
+- [ ] (when JTBD selected) JTBD analysis complete: all jobs in job story format
+- [ ] (when JTBD selected) Job dimensions identified: functional|emotional|social per job
+- [ ] (when JTBD selected) Four Forces mapped per job (push|pull|anxiety|habit)
+- [ ] (when JTBD selected) Opportunity scores produced (when multiple jobs)
+- [ ] UX journey map with emotional arcs and shared artifacts
+- [ ] (when JTBD selected) Every journey maps to at least one job
+- [ ] Discovery complete: user mental model understood, no vague steps
+- [ ] Happy path defined: all steps start-to-goal with expected outputs
+- [ ] Emotional arc coherent: confidence builds progressively
+- [ ] Shared artifacts tracked: every ${variable} has single documented source
+- [ ] Story map created with backbone, walking skeleton, and release slices
+- [ ] Outcome KPIs defined with measurable targets
+- [ ] Prioritization suggestions based on outcome impact
+- [ ] Requirements completeness score > 0.95
+- [ ] (when JTBD selected) Every user story traces to at least one job story
+- [ ] All acceptance criteria testable
+- [ ] DoR passed: all 9 items validated with evidence
+- [ ] Peer review approved
+- [ ] Handoff accepted by nw-solution-architect (DESIGN wave)
+
+## Next Wave
+
+**Handoff To**: nw-solution-architect (DESIGN wave) + nw-platform-architect (DEVOPS wave, KPIs only)
+**Deliverables**: Journey artifacts + story map + requirements + outcome KPIs | JTBD artifacts (when selected)
+
+DISCUSS hands off to BOTH DESIGN (full artifacts) and DEVOPS (outcome-kpis.md only). DEVOPS and DESIGN can proceed in parallel — DESIGN receives the complete artifact set while DEVOPS receives only the KPI file to drive observability and instrumentation design.
+
+## Wave Decisions Summary
+
+Before completing DISCUSS, produce `docs/feature/{feature-id}/discuss/wave-decisions.md`:
+
+```markdown
+# DISCUSS Decisions — {feature-id}
+
+## Key Decisions
+- [D1] {decision}: {rationale} (see: {source-file})
+
+## Requirements Summary
+- Primary jobs/user needs: {1-3 sentence summary}
+- Walking skeleton scope: {if applicable}
+- Feature type: {user-facing|backend|infrastructure|cross-cutting}
+
+## Constraints Established
+- {constraint from requirements analysis}
+
+## Upstream Changes
+- {any DISCOVER assumptions changed, with rationale}
+```
+
+This summary enables DESIGN to quickly assess DISCUSS outcomes. DESIGN reads this plus key artifacts (requirements.md, acceptance-criteria.md, story-map.md, outcome-kpis.md) rather than all DISCUSS files.
+
+## Expected Outputs
+
+```
+docs/feature/{feature-id}/discuss/
+  jtbd-job-stories.md           (when JTBD selected)
+  jtbd-four-forces.md           (when JTBD selected)
+  jtbd-opportunity-scores.md    (when JTBD selected, multiple jobs)
+  journey-{name}-visual.md
+  journey-{name}.yaml
+  journey-{name}.feature
+  shared-artifacts-registry.md
+  story-map.md
+  prioritization.md
+  requirements.md
+  user-stories.md               (each story traces to a job)
+  acceptance-criteria.md
+  dor-checklist.md
+  outcome-kpis.md
+  wave-decisions.md
+```
+
+## Examples
+
+### Example 1: User-facing feature with comprehensive UX research
+```
+/nw-discuss first-time-setup
+```
+Orchestrator asks Decision 1-3. User selects "User-facing", "No skeleton", "Comprehensive". Luna starts with JTBD analysis: discovers jobs like "When I first open the app, I want to feel productive immediately, so I can justify the purchase." Maps four forces for each job. Scores opportunities. Then runs journey discovery informed by JTBD, produces visual journey + YAML + Gherkin. Finally crafts stories where each traces to a job, validates DoR, and prepares handoff.
+
+### Example 2: JTBD-only invocation
+```
+/nw-discuss --phase=jtbd onboarding-flow
+```
+Runs only Luna's JTBD analysis phase (job discovery + dimensions + four forces + opportunity scoring). Produces JTBD artifacts without proceeding to journey design or requirements. Useful for early discovery when you need to understand user motivations before committing to UX design.
+
+### Example 3: Journey-only invocation
+```
+/nw-discuss --phase=journey release-nwave
+```
+Runs only Luna's journey design phases (discovery + visualization + coherence validation). Produces journey artifacts without proceeding to requirements crafting. Useful when JTBD is already done and journey design needs standalone iteration.
+
+### Example 4: Requirements-only invocation
+```
+/nw-discuss --phase=requirements new-plugin-system
+```
+Runs only Luna's requirements phases (gathering + crafting + DoR validation). Assumes JTBD and journey artifacts already exist or are not needed (e.g., backend feature).
+
+---
+
+Continue from where you left off.
+
+---
+
+well, policies also need to evaluate the http post payloads..

@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "81543c087a18",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/http-proxy-policy",
+  "checkpoints_count": 10,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "docs/feature/http-proxy-governance/discover/interview-log.md",
+    "docs/feature/http-proxy-governance/discover/lean-canvas.md",
+    "docs/feature/http-proxy-governance/discover/opportunity-tree.md",
+    "docs/feature/http-proxy-governance/discover/problem-validation.md",
+    "docs/feature/http-proxy-governance/discover/solution-testing.md",
+    "docs/feature/http-proxy-governance/discover/wave-decisions.md",
+    "docs/research/http-proxy-governance/tls-mitm-proxy-libraries.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/81/543c087a18/0/metadata.json",
+      "transcript": "/81/543c087a18/0/full.jsonl",
+      "context": "/81/543c087a18/0/context.md",
+      "content_hash": "/81/543c087a18/0/content_hash.txt",
+      "prompt": "/81/543c087a18/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 3535,
+    "cache_creation_tokens": 666694,
+    "cache_read_tokens": 4474957,
+    "output_tokens": 25519,
+    "api_call_count": 59
+  }
+}
