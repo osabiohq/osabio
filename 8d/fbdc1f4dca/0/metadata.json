@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "8dfbdc1f4dca",
+  "session_id": "0bdc4794-a1d1-4205-aeba-d772009279e3",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T02:54:27.458812Z",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/components/policy/PolicyTestPanel.tsx",
+    "docs/feature/regorus-policy-eval/deliver/.develop-progress.json",
+    "docs/feature/regorus-policy-eval/deliver/execution-log.json"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "f81d7f63d0f6",
+  "token_usage": {
+    "input_tokens": 3212,
+    "cache_creation_tokens": 259999,
+    "cache_read_tokens": 8109600,
+    "output_tokens": 45674,
+    "api_call_count": 80
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T02:54:26.571285Z",
+    "agent_lines": 302,
+    "human_added": 479,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 781,
+    "agent_percentage": 38.668373879641486
+  }
+}
