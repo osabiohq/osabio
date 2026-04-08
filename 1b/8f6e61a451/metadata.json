@@ -3,7 +3,7 @@
   "checkpoint_id": "1b8f6e61a451",
   "strategy": "manual-commit",
   "branch": "marcus-sa/regorus-policy-eval",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "app/src/client/components/policy/CreatePolicyDialog.tsx",
     "app/src/client/components/policy/RegoEditor.tsx",
@@ -24,13 +24,20 @@
       "context": "/1b/8f6e61a451/1/context.md",
       "content_hash": "/1b/8f6e61a451/1/content_hash.txt",
       "prompt": "/1b/8f6e61a451/1/prompt.txt"
+    },
+    {
+      "metadata": "/1b/8f6e61a451/2/metadata.json",
+      "transcript": "/1b/8f6e61a451/2/full.jsonl",
+      "context": "/1b/8f6e61a451/2/context.md",
+      "content_hash": "/1b/8f6e61a451/2/content_hash.txt",
+      "prompt": "/1b/8f6e61a451/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 258,
-    "cache_creation_tokens": 103518,
-    "cache_read_tokens": 1574410,
-    "output_tokens": 11299,
-    "api_call_count": 26
+    "input_tokens": 266,
+    "cache_creation_tokens": 146471,
+    "cache_read_tokens": 1855612,
+    "output_tokens": 12162,
+    "api_call_count": 32
   }
 }
