@@ -1,0 +1,23 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "110250f168b2",
+  "session_id": "93a489c3-e4e9-4f72-98f0-ee4bac728d98",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T07:06:45.845221Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".gitmodules"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "d69cadc1dad8",
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T07:06:45.829526Z",
+    "agent_lines": 0,
+    "human_added": 6647,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 6647,
+    "agent_percentage": 0
+  }
+}
