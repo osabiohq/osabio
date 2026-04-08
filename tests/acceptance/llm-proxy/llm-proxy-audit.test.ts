@@ -79,6 +79,7 @@ async function seedAuditPolicy(
         effect: "allow",
         priority: 50,
       }],
+      rego_source: "package osabio.policy\ndefault allow = true",
       created_at: new Date(),
     },
   });

@@ -20,7 +20,7 @@ import {
   createPolicyViaApi,
   getPolicyDetail,
   buildPolicyBody,
-  buildMinimalRule,
+  DEFAULT_REGO_SOURCE,
   type PolicyDetailResponse,
 } from "./policy-crud-test-kit";
 
@@ -43,7 +43,7 @@ describe("Milestone 2: Policy Creation (US-PCUI-02)", () => {
     const user = await createTestUser(baseUrl, "m2-create-happy");
     const workspace = await createTestWorkspace(baseUrl, user);
 
-    // When admin creates a policy with a deploy-blocking rule
+    // When admin creates a policy with Rego source
     const response = await createPolicyViaApi(
       baseUrl,
       user.headers,
@@ -51,14 +51,7 @@ describe("Milestone 2: Policy Creation (US-PCUI-02)", () => {
       buildPolicyBody({
         title: "Block Production Deployments",
         description: "Prevents agents from deploying to production without human approval",
-        rules: [
-          buildMinimalRule({
-            id: "block_prod_deploy",
-            condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-            effect: "deny",
-            priority: 100,
-          }),
-        ],
+        rego_source: DEFAULT_REGO_SOURCE,
         human_veto_required: true,
       }),
     );
@@ -78,9 +71,6 @@ describe("Milestone 2: Policy Creation (US-PCUI-02)", () => {
     expect(detail.policy.version).toBe(1);
     expect(detail.policy.title).toBe("Block Production Deployments");
     expect(detail.policy.human_veto_required).toBe(true);
-    expect(detail.policy.rules).toHaveLength(1);
-    expect(detail.policy.rules[0].id).toBe("block_prod_deploy");
-    expect(detail.policy.rules[0].effect).toBe("deny");
   }, 120_000);
 
   // ---------------------------------------------------------------------------
@@ -94,31 +84,23 @@ describe("Milestone 2: Policy Creation (US-PCUI-02)", () => {
     const user = await createTestUser(baseUrl, "m2-multi-rules");
     const workspace = await createTestWorkspace(baseUrl, user);
 
-    // When admin creates a policy with two rules
+    // When admin creates a policy with Rego source containing multiple rules
+    const multiRuleRego = `package osabio.policy
+default allow = false
+allow { input.action_spec.action == "read" }
+deny { input.action_spec.action == "deploy" }`;
+
     const response = await createPolicyViaApi(
       baseUrl,
       user.headers,
       workspace.workspaceId,
       buildPolicyBody({
         title: "Tiered Access Control",
-        rules: [
-          buildMinimalRule({
-            id: "block_deploy",
-            condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-            effect: "deny",
-            priority: 100,
-          }),
-          buildMinimalRule({
-            id: "allow_read",
-            condition: { field: "action_spec.action", operator: "eq", value: "read" },
-            effect: "allow",
-            priority: 10,
-          }),
-        ],
+        rego_source: multiRuleRego,
       }),
     );
 
-    // Then the policy is created with both rules
+    // Then the policy is created successfully
     expect(response.status).toBe(201);
     const body = await response.json() as { policy_id: string };
 
@@ -126,11 +108,7 @@ describe("Milestone 2: Policy Creation (US-PCUI-02)", () => {
       baseUrl, user.headers, workspace.workspaceId, body.policy_id,
     );
     const detail = await detailResponse.json() as PolicyDetailResponse;
-    expect(detail.policy.rules).toHaveLength(2);
-
-    const ruleIds = detail.policy.rules.map(r => r.id);
-    expect(ruleIds).toContain("block_deploy");
-    expect(ruleIds).toContain("allow_read");
+    expect(detail.policy.title).toBe("Tiered Access Control");
   }, 120_000);
 
   // ---------------------------------------------------------------------------
@@ -152,14 +130,7 @@ describe("Milestone 2: Policy Creation (US-PCUI-02)", () => {
       buildPolicyBody({
         title: "Coding Agent Budget Cap",
         selector: { agent_role: "coding" },
-        rules: [
-          buildMinimalRule({
-            id: "budget_cap",
-            condition: { field: "budget_limit.amount", operator: "gt", value: 1000 },
-            effect: "deny",
-            priority: 50,
-          }),
-        ],
+        rego_source: DEFAULT_REGO_SOURCE,
       }),
     );
 
@@ -199,8 +170,9 @@ describe("Milestone 2: Policy Creation Validation (US-PCUI-02)", () => {
       workspace.workspaceId,
       {
         title: "",
-        rules: [buildMinimalRule()],
-      },
+        description: "Missing title test",
+        rego_source: DEFAULT_REGO_SOURCE,
+      } as any,
     );
 
     // Then the request is rejected with validation error
@@ -210,59 +182,54 @@ describe("Milestone 2: Policy Creation Validation (US-PCUI-02)", () => {
   }, 120_000);
 
   // ---------------------------------------------------------------------------
-  // Missing rules is rejected
-  // AC: POST without rules returns 400
+  // Missing rego_source is rejected
+  // AC: POST without rego_source returns 400
   // ---------------------------------------------------------------------------
-  it("policy creation is rejected without any rules", async () => {
+  it("policy creation is rejected without rego_source", async () => {
     const { baseUrl } = getRuntime();
 
     // Given an admin in a workspace
-    const user = await createTestUser(baseUrl, "m2-no-rules");
+    const user = await createTestUser(baseUrl, "m2-no-rego");
     const workspace = await createTestWorkspace(baseUrl, user);
 
-    // When admin attempts to create a policy with empty rules
+    // When admin attempts to create a policy without rego_source
     const response = await createPolicyViaApi(
       baseUrl,
       user.headers,
       workspace.workspaceId,
       {
-        title: "No Rules Policy",
-        description: "Policy with no rules for testing",
-        rules: [],
-      },
+        title: "No Rego Policy",
+        description: "Policy with no rego_source for testing",
+      } as any,
     );
 
     // Then the request is rejected with validation error
     expect(response.status).toBe(400);
     const body = await response.json() as { error: string };
-    expect(body.error).toContain("rule");
+    expect(body.error).toContain("rego_source");
   }, 120_000);
 
   // ---------------------------------------------------------------------------
-  // Invalid predicate structure is rejected
-  // AC: POST with malformed rule condition returns 400
+  // Invalid Rego syntax is rejected
+  // AC: POST with malformed Rego source returns 400
   // ---------------------------------------------------------------------------
-  it("policy creation is rejected with invalid predicate structure", async () => {
+  it("policy creation is rejected with invalid Rego syntax", async () => {
     const { baseUrl } = getRuntime();
 
     // Given an admin in a workspace
-    const user = await createTestUser(baseUrl, "m2-bad-predicate");
+    const user = await createTestUser(baseUrl, "m2-bad-rego");
     const workspace = await createTestWorkspace(baseUrl, user);
 
-    // When admin attempts to create a policy with an invalid condition
+    // When admin attempts to create a policy with invalid Rego
     const response = await createPolicyViaApi(
       baseUrl,
       user.headers,
       workspace.workspaceId,
       {
-        title: "Bad Predicate Policy",
-        rules: [{
-          id: "bad_rule",
-          condition: { invalid: "structure" } as unknown,
-          effect: "deny",
-          priority: 100,
-        }],
-      },
+        title: "Bad Rego Policy",
+        description: "Policy with invalid Rego syntax",
+        rego_source: "package osabio.policy\nthis is not valid rego {{{}}}",
+      } as any,
     );
 
     // Then the request is rejected with validation error
@@ -270,30 +237,26 @@ describe("Milestone 2: Policy Creation Validation (US-PCUI-02)", () => {
   }, 120_000);
 
   // ---------------------------------------------------------------------------
-  // Invalid effect value is rejected
-  // AC: POST with effect other than allow/deny returns 400
+  // Missing package declaration is rejected
+  // AC: POST with Rego missing required package returns 400
   // ---------------------------------------------------------------------------
-  it("policy creation is rejected with invalid rule effect", async () => {
+  it("policy creation is rejected without required package declaration", async () => {
     const { baseUrl } = getRuntime();
 
     // Given an admin in a workspace
-    const user = await createTestUser(baseUrl, "m2-bad-effect");
+    const user = await createTestUser(baseUrl, "m2-no-package");
     const workspace = await createTestWorkspace(baseUrl, user);
 
-    // When admin attempts to create a policy with an invalid effect
+    // When admin attempts to create a policy without the required package
     const response = await createPolicyViaApi(
       baseUrl,
       user.headers,
       workspace.workspaceId,
       {
-        title: "Bad Effect Policy",
-        rules: [{
-          id: "bad_rule",
-          condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-          effect: "maybe" as "allow",
-          priority: 100,
-        }],
-      },
+        title: "Missing Package Policy",
+        description: "Policy without osabio.policy package",
+        rego_source: "package wrong.package\ndefault allow = true",
+      } as any,
     );
 
     // Then the request is rejected

@@ -269,6 +269,7 @@ beforeAll(async () => {
       status: "active",
       selector: {},
       rules: [{ id: "r1", condition: { field: "action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: "package osabio.policy\ndefault allow = true",
       human_veto_required: false,
       created_by: identityRecord,
       workspace: workspaceRecord,

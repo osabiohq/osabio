@@ -324,6 +324,7 @@ export async function seedToolPolicy(
       created_by: createdByRecord,
       selector: {},
       rules: [],
+      rego_source: "package osabio.policy\ndefault allow = true",
       created_at: new Date(),
     },
   });

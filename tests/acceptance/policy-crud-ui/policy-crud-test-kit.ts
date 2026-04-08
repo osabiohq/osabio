@@ -100,12 +100,7 @@ export type PolicyDetailResponse = {
       agent_role?: string;
       resource?: string;
     };
-    rules: Array<{
-      id: string;
-      condition: unknown;
-      effect: "allow" | "deny";
-      priority: number;
-    }>;
+    rego_source: string;
     human_veto_required: boolean;
     max_ttl?: string;
     supersedes?: string;
@@ -124,12 +119,7 @@ export type PolicyCreateBody = {
     agent_role?: string;
     resource?: string;
   };
-  rules: Array<{
-    id: string;
-    condition: unknown;
-    effect: "allow" | "deny";
-    priority: number;
-  }>;
+  rego_source: string;
   human_veto_required?: boolean;
   max_ttl?: string;
 };
@@ -364,23 +354,15 @@ export async function linkUserToIdentity(
 // Common Test Data Builders
 // ---------------------------------------------------------------------------
 
-/** A minimal valid rule for creating policies. */
-export function buildMinimalRule(overrides?: Partial<PolicyCreateBody["rules"][0]>): PolicyCreateBody["rules"][0] {
-  return {
-    id: `rule-${crypto.randomUUID()}`,
-    condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-    effect: "deny",
-    priority: 100,
-    ...overrides,
-  };
-}
+/** Default Rego source for test policies. */
+export const DEFAULT_REGO_SOURCE = 'package osabio.policy\ndefault allow = true';
 
-/** A valid policy creation body with one rule. */
+/** A valid policy creation body with Rego source. */
 export function buildPolicyBody(overrides?: Partial<PolicyCreateBody>): PolicyCreateBody {
   return {
     title: `Test Policy ${crypto.randomUUID().slice(0, 8)}`,
     description: "Test policy description for automated testing",
-    rules: [buildMinimalRule()],
+    rego_source: DEFAULT_REGO_SOURCE,
     ...overrides,
   };
 }

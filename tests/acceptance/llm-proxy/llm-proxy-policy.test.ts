@@ -69,6 +69,7 @@ async function createProxyModelPolicy(
         },
       ],
       human_veto_required: false,
+      rego_source: "package osabio.policy\ndefault allow = true",
       created_at: new Date(),
     },
   });

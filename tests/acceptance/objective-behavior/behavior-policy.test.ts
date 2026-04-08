@@ -1,19 +1,19 @@
 /**
  * Behavior-Based Policy Enforcement Acceptance Tests (US-OB-04)
  *
- * Validates that policy rules can reference behavior_scores via dot-path
- * resolution, and that the enriched IntentEvaluationContext flows through
- * the policy gate to approve or deny intents based on agent behavior.
+ * Validates that Rego policies can reference behavior_scores via input paths,
+ * and that the enriched IntentEvaluationContext flows through the Rego
+ * evaluator to approve or deny intents based on agent behavior.
  *
  * Testing strategy:
  *   - Behavior scores are seeded in DB via test kit helpers
  *   - Context enrichment loads scores into IntentEvaluationContext
- *   - Pure policy gate pipeline evaluates rules against enriched context
+ *   - Rego policy evaluation replaces the old rule-based pipeline
  *   - Testing-mode policies log without blocking
  *
  * Driving ports:
  *   enrichBehaviorScores (context enrichment function)
- *   evaluateRulesAgainstContext (pure policy gate pipeline)
+ *   evaluateRegoPolicy (Rego policy evaluation)
  *   SurrealDB direct queries (seeding + verification)
  */
 import { describe, expect, it } from "bun:test";
@@ -27,17 +27,44 @@ import {
   getLatestBehaviorScore,
   getIntentRecord,
 } from "./objective-behavior-test-kit";
-import { RecordId } from "surrealdb";
 import type { IntentEvaluationContext } from "../../../app/src/server/policy/types";
 import {
-  evaluateRulesAgainstContext,
-  collectAndSortRules,
-  buildGateResult,
-} from "../../../app/src/server/policy/policy-gate";
+  evaluateRegoPolicy,
+  createEngineCache,
+} from "../../../app/src/server/policy/rego-evaluator";
+import { buildGateResult } from "../../../app/src/server/policy/policy-gate";
 import { enrichBehaviorScores } from "../../../app/src/server/behavior/queries";
-import type { PolicyRecord } from "../../../app/src/server/policy/types";
 
 const getRuntime = setupObjectiveBehaviorSuite("behavior_policy");
+
+// ---------------------------------------------------------------------------
+// Helper: evaluate Rego and build gate result
+// ---------------------------------------------------------------------------
+async function evaluateAndBuildGateResult(
+  regoSource: string,
+  policyId: string,
+  context: IntentEvaluationContext,
+): Promise<{ gateResult: ReturnType<typeof buildGateResult>; regoResult: Awaited<ReturnType<typeof evaluateRegoPolicy>> }> {
+  const cache = createEngineCache();
+  const regoResult = await evaluateRegoPolicy(regoSource, policyId, 1, context, cache);
+  const denied = regoResult.decision === "deny";
+
+  const gateResult = buildGateResult(
+    [{
+      policyId,
+      policyVersion: 1,
+      humanVetoRequired: false,
+      denied,
+      denyMessages: regoResult.messages,
+      evidenceRequirement: regoResult.evidence_requirement,
+      warnings: [],
+    }],
+    denied,
+    [],
+  );
+
+  return { gateResult, regoResult };
+}
 
 // =============================================================================
 // Walking Skeleton: Behavior policy vetoes intent when score below threshold
@@ -53,20 +80,19 @@ describe("Walking Skeleton: Behavior policy vetoes deploy intent (US-OB-04)", ()
       `ws-veto-${crypto.randomUUID()}`,
     );
 
-    // And a policy rule that denies when behavior_scores.Security_First < 0.80
+    // And a Rego policy that denies when behavior_scores.Security_First < 0.80
+    const regoSource = `package osabio.policy
+
+deny["Security_First score below threshold"] {
+  input.behavior_scores.Security_First < 0.80
+}
+
+default allow = true
+`;
+
     const { policyId } = await createBehaviorPolicy(surreal, workspaceId, adminId, {
       title: "Security Behavior Gate",
-      status: "active",
-      rules: [{
-        id: "security_min",
-        condition: {
-          field: "behavior_scores.Security_First",
-          operator: "lt",
-          value: 0.80,
-        },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: regoSource,
     });
 
     // And Coder-Beta has a Security_First score of 0.65 (below threshold)
@@ -101,42 +127,21 @@ describe("Walking Skeleton: Behavior policy vetoes deploy intent (US-OB-04)", ()
     expect(enrichedContext.behavior_scores).toBeDefined();
     expect(enrichedContext.behavior_scores!.Security_First).toBe(0.65);
 
-    // And when the policy gate evaluates the enriched context
-    const policyRecord = new RecordId("policy", policyId);
-    const policies: PolicyRecord[] = [{
-      id: policyRecord,
-      title: "Security Behavior Gate",
-      version: 1,
-      status: "active",
-      selector: {},
-      rules: [{
-        id: "security_min",
-        condition: {
-          field: "behavior_scores.Security_First",
-          operator: "lt",
-          value: 0.80,
-        },
-        effect: "deny",
-        priority: 100,
-      }],
-      human_veto_required: false,
-      created_by: new RecordId("identity", adminId),
-      workspace: new RecordId("workspace", workspaceId),
-      created_at: new Date(),
-    }];
-
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+    // And the Rego policy denies the intent
+    const { gateResult, regoResult } = await evaluateAndBuildGateResult(
+      regoSource,
+      policyId,
       enrichedContext,
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
+
+    expect(regoResult.decision).toBe("deny");
+    expect(regoResult.messages).toContain("Security_First score below threshold");
 
     // Then the policy gate denies the intent
     expect(gateResult.passed).toBe(false);
     if (!gateResult.passed) {
-      expect(gateResult.deny_rule_id).toBe("security_min");
-      expect(gateResult.reason).toContain("security_min");
+      expect(gateResult.deny_rule_id).toBe(policyId);
+      expect(gateResult.reason).toContain(policyId);
     }
   }, 60_000);
 });
@@ -184,38 +189,23 @@ describe("Happy Path: Intent passes when score above threshold (US-OB-04)", () =
     // Then the score is above the threshold
     expect(enrichedContext.behavior_scores!.Security_First).toBe(0.93);
 
-    // And when the policy gate evaluates with deny rule for < 0.80
-    const policyRecord = new RecordId("policy", `policy-${crypto.randomUUID()}`);
-    const policies: PolicyRecord[] = [{
-      id: policyRecord,
-      title: "Security Behavior Gate",
-      version: 1,
-      status: "active",
-      selector: {},
-      rules: [{
-        id: "security_min",
-        condition: {
-          field: "behavior_scores.Security_First",
-          operator: "lt",
-          value: 0.80,
-        },
-        effect: "deny",
-        priority: 100,
-      }],
-      human_veto_required: false,
-      created_by: new RecordId("identity", adminId),
-      workspace: new RecordId("workspace", workspaceId),
-      created_at: new Date(),
-    }];
+    // And the Rego policy allows the intent
+    const regoSource = `package osabio.policy
 
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+deny["Security_First score below threshold"] {
+  input.behavior_scores.Security_First < 0.80
+}
+
+default allow = true
+`;
+
+    const { gateResult, regoResult } = await evaluateAndBuildGateResult(
+      regoSource,
+      `policy-${crypto.randomUUID()}`,
       enrichedContext,
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
 
-    // Then the policy gate allows the intent
+    expect(regoResult.decision).toBe("allow");
     expect(gateResult.passed).toBe(true);
   }, 60_000);
 });
@@ -262,51 +252,33 @@ describe("Edge Case: Policy in testing mode observes without blocking (US-OB-04)
 
     expect(enrichedContext.behavior_scores!.TDD_Adherence).toBe(0.42);
 
-    // Testing-mode policies should NOT be included in active policy evaluation.
-    // The policy gate only loads "active" policies. A "testing" policy would be
-    // evaluated separately for logging purposes but never blocks.
-    // Here we verify the enriched context with an active allow-all gives pass.
-    const policyRecord = new RecordId("policy", `policy-${crypto.randomUUID()}`);
-    const policies: PolicyRecord[] = [{
-      id: policyRecord,
-      title: "TDD Quality Gate (testing mode)",
-      version: 1,
-      status: "testing" as "active", // Cast: in production, loadActivePolicies filters this out
-      selector: {},
-      rules: [{
-        id: "tdd_min",
-        condition: {
-          field: "behavior_scores.TDD_Adherence",
-          operator: "lt",
-          value: 0.70,
-        },
-        effect: "deny",
-        priority: 80,
-      }],
-      human_veto_required: false,
-      created_by: new RecordId("identity", adminId),
-      workspace: new RecordId("workspace", workspaceId),
-      created_at: new Date(),
-    }];
+    // The Rego policy WOULD deny (0.42 < 0.70)
+    const regoSource = `package osabio.policy
 
-    // The rule WOULD match (0.42 < 0.70)
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+deny["TDD_Adherence score below threshold"] {
+  input.behavior_scores.TDD_Adherence < 0.70
+}
+
+default allow = true
+`;
+
+    // Evaluate the Rego directly to verify it would deny
+    const cache = createEngineCache();
+    const regoResult = await evaluateRegoPolicy(
+      regoSource,
+      "tdd-testing-policy",
+      1,
       enrichedContext,
+      cache,
     );
 
-    // Verify the rule matched (for logging purposes)
-    expect(denyMatched).toBe(true);
-    const matchedRule = evaluatedRules.find(r => r.matched && r.rule.effect === "deny");
-    expect(matchedRule).toBeDefined();
-    expect(matchedRule!.rule.id).toBe("tdd_min");
+    // Verify the Rego rule matched (for logging purposes)
+    expect(regoResult.decision).toBe("deny");
+    expect(regoResult.messages).toContain("TDD_Adherence score below threshold");
 
     // But in production, since status is "testing", loadActivePolicies would
     // exclude this policy. With no active deny rules, the intent proceeds.
-    const emptyPolicies: PolicyRecord[] = [];
-    const emptyRules = collectAndSortRules(emptyPolicies);
-    const passResult = buildGateResult(emptyRules, false, []);
+    const passResult = buildGateResult([], false, []);
     expect(passResult.passed).toBe(true);
   }, 60_000);
 });
@@ -359,43 +331,27 @@ describe("Error Path: Agent with no behavior data encounters policy (US-OB-04)",
     // Then behavior_scores is empty (no scores available)
     expect(enrichedContext.behavior_scores).toEqual({});
 
-    // And when the policy gate evaluates a deny rule for behavior_scores.Security_First < 0.80
-    const policyRecord = new RecordId("policy", `policy-${crypto.randomUUID()}`);
-    const policies: PolicyRecord[] = [{
-      id: policyRecord,
-      title: "Security Behavior Gate",
-      version: 1,
-      status: "active",
-      selector: {},
-      rules: [{
-        id: "security_min",
-        condition: {
-          field: "behavior_scores.Security_First",
-          operator: "lt",
-          value: 0.80,
-        },
-        effect: "deny",
-        priority: 100,
-      }],
-      human_veto_required: false,
-      created_by: new RecordId("identity", adminId),
-      workspace: new RecordId("workspace", workspaceId),
-      created_at: new Date(),
-    }];
+    // And a Rego policy that denies when behavior_scores.Security_First < 0.80
+    // In Rego, accessing a missing field evaluates to undefined, so the deny
+    // rule body is not satisfied -- the intent is allowed.
+    const regoSource = `package osabio.policy
 
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+deny["Security_First score below threshold"] {
+  input.behavior_scores.Security_First < 0.80
+}
+
+default allow = true
+`;
+
+    const { gateResult, regoResult } = await evaluateAndBuildGateResult(
+      regoSource,
+      `policy-${crypto.randomUUID()}`,
       enrichedContext,
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
 
-    // Then the intent is NOT vetoed (missing field = predicate returns false)
+    // Then the intent is NOT vetoed (missing field => undefined in Rego => deny rule not satisfied)
+    expect(regoResult.decision).toBe("allow");
     expect(gateResult.passed).toBe(true);
-
-    // And a warning is emitted for the missing field
-    expect(warnings.length).toBeGreaterThan(0);
-    expect(warnings[0].field).toBe("behavior_scores.Security_First");
   }, 60_000);
 });
 

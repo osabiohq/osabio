@@ -539,6 +539,7 @@ export async function createModelAccessPolicy(
         priority: 50,
         params: { allowed_models: options.allowedModels },
       }],
+      rego_source: "package osabio.policy\ndefault allow = true",
       created_at: new Date(),
     },
   });

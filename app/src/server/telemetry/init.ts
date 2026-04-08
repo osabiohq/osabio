@@ -12,8 +12,14 @@
  * so the server can still start.
  */
 
-import { trace, metrics, context, type TracerProvider as ApiTracerProvider, type MeterProvider as ApiMeterProvider } from "@opentelemetry/api";
-import { logs, type LoggerProvider as ApiLoggerProvider } from "@opentelemetry/api-logs";
+import * as otelApi from "@opentelemetry/api";
+import type { TracerProvider as ApiTracerProvider, MeterProvider as ApiMeterProvider } from "@opentelemetry/api";
+import * as otelLogs from "@opentelemetry/api-logs";
+import type { LoggerProvider as ApiLoggerProvider } from "@opentelemetry/api-logs";
+
+// Destructure after namespace import for Bun CJS/ESM interop resilience
+const { trace, metrics, context } = otelApi;
+const { logs } = otelLogs;
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import type { Resource } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";

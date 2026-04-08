@@ -69,16 +69,7 @@ describe("US-10: Policy-driven evidence requirements", () => {
       title: "Financial Transaction Evidence Policy",
       description: "Requires 4 evidence references for financial transaction actions",
       selector: { resource: "intent" },
-      rules: [
-        {
-          id: "financial-evidence-req",
-          condition: { field: "action_spec.action", operator: "eq", value: "financial_transaction" },
-          effect: "evidence_requirement",
-          priority: 100,
-          min_evidence_count: 4,
-          required_types: ["decision", "task"],
-        },
-      ],
+      rego_source: "package osabio.policy\ndefault allow = true\nevidence_requirement = {\"min_count\": 4, \"required_types\": [\"decision\", \"task\"]} {\n  input.action_spec.action == \"financial_transaction\"\n}",
     });
     await activatePolicy(surreal, policyId, agentId, workspace.workspaceId);
 
@@ -137,15 +128,7 @@ describe("US-10: Policy-driven evidence requirements", () => {
       title: "Data Read Evidence Policy",
       description: "Allows 1 evidence reference for data_read actions",
       selector: { resource: "intent" },
-      rules: [
-        {
-          id: "data-read-evidence-override",
-          condition: { field: "action_spec.action", operator: "eq", value: "data_read" },
-          effect: "evidence_requirement",
-          priority: 100,
-          min_evidence_count: 1,
-        },
-      ],
+      rego_source: "package osabio.policy\ndefault allow = true\nevidence_requirement = {\"min_count\": 1} {\n  input.action_spec.action == \"data_read\"\n}",
     });
     await activatePolicy(surreal, policyId, agentId, workspace.workspaceId);
 

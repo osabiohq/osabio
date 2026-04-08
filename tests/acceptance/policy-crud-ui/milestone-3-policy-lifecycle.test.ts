@@ -29,7 +29,7 @@ import {
   deprecatePolicyViaApi,
   getPolicyDetail,
   buildPolicyBody,
-  buildMinimalRule,
+  DEFAULT_REGO_SOURCE,
   type PolicyDetailResponse,
 } from "./policy-crud-test-kit";
 
@@ -59,12 +59,7 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
       workspace.workspaceId,
       buildPolicyBody({
         title: "Deploy Guard",
-        rules: [buildMinimalRule({
-          id: "block_deploy",
-          condition: { field: "action_spec.action", operator: "eq", value: "deploy" },
-          effect: "deny",
-          priority: 100,
-        })],
+        rego_source: DEFAULT_REGO_SOURCE,
       }),
     );
     const { policy_id: policyId } = await createResponse.json() as { policy_id: string };
@@ -105,7 +100,7 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Already Active",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -134,7 +129,7 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Deprecated Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
     await deprecatePolicy(surreal, policyId);
@@ -162,7 +157,7 @@ describe("Milestone 3: Policy Activation (US-PCUI-04)", () => {
 
     const { policyId: v1Id } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Original Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, v1Id, adminId, workspace.workspaceId);
 
@@ -204,7 +199,7 @@ describe("Milestone 3: Policy Deprecation (US-PCUI-04)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Policy to Deprecate",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
 
@@ -250,7 +245,7 @@ describe("Milestone 3: Policy Deprecation (US-PCUI-04)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Draft Cannot Deprecate",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
 
     // When admin attempts to deprecate the draft policy
@@ -278,7 +273,7 @@ describe("Milestone 3: Policy Deprecation (US-PCUI-04)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Already Deprecated",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
     await deprecatePolicy(surreal, policyId);

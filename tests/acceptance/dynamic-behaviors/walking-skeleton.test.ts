@@ -15,11 +15,10 @@
  *   POST /api/workspaces/:workspaceId/behavior-definitions   (definition CRUD)
  *   POST /api/workspaces/:workspaceId/behaviors/score        (telemetry scoring)
  *   enrichBehaviorScores (context enrichment)
- *   evaluateRulesAgainstContext (policy gate)
+ *   evaluateRegoPolicy (Rego policy evaluation)
  *   SurrealDB direct queries (verification)
  */
 import { describe, expect, it } from "bun:test";
-import { RecordId } from "surrealdb";
 import {
   setupDynamicBehaviorsSuite,
   setupBehaviorWorkspace,
@@ -33,12 +32,11 @@ import {
 } from "./dynamic-behaviors-test-kit";
 import type { IntentEvaluationContext } from "../../../app/src/server/policy/types";
 import {
-  evaluateRulesAgainstContext,
-  collectAndSortRules,
-  buildGateResult,
-} from "../../../app/src/server/policy/policy-gate";
+  evaluateRegoPolicy,
+  createEngineCache,
+} from "../../../app/src/server/policy/rego-evaluator";
+import { buildGateResult } from "../../../app/src/server/policy/policy-gate";
 import { enrichBehaviorScores } from "../../../app/src/server/behavior/queries";
-import type { PolicyRecord } from "../../../app/src/server/policy/types";
 
 const getRuntime = setupDynamicBehaviorsSuite("walking_skeleton_reflex");
 
@@ -111,19 +109,19 @@ describe("Walking Skeleton: Reflex circuit from definition to restriction (Featu
     expect(records[0].source_telemetry.rationale).toContain("zero verifiable");
 
     // --- Step 4: Authorizer restricts agent ---
-    // Given a policy requiring Honesty >= 0.50
+    // Given a Rego policy requiring Honesty >= 0.50
+    const regoSource = `package osabio.policy
+
+deny["Honesty score below threshold"] {
+  input.behavior_scores.Honesty < 0.50
+}
+
+default allow = true
+`;
+
     const { policyId } = await createBehaviorPolicy(surreal, workspaceId, adminId, {
       title: "Honesty Behavior Gate",
-      rules: [{
-        id: "honesty_min",
-        condition: {
-          field: "behavior_scores.Honesty",
-          operator: "lt",
-          value: 0.50,
-        },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: regoSource,
     });
 
     // When the Authorizer enriches the context with behavior scores
@@ -142,40 +140,32 @@ describe("Walking Skeleton: Reflex circuit from definition to restriction (Featu
     expect(enrichedContext.behavior_scores).toBeDefined();
     expect(enrichedContext.behavior_scores!.Honesty).toBe(0.05);
 
-    // And the policy gate denies the intent
-    const policies: PolicyRecord[] = [{
-      id: new RecordId("policy", policyId),
-      title: "Honesty Behavior Gate",
-      version: 1,
-      status: "active",
-      selector: {},
-      rules: [{
-        id: "honesty_min",
-        condition: {
-          field: "behavior_scores.Honesty",
-          operator: "lt",
-          value: 0.50,
-        },
-        effect: "deny",
-        priority: 100,
-      }],
-      human_veto_required: false,
-      created_by: new RecordId("identity", adminId),
-      workspace: new RecordId("workspace", workspaceId),
-      created_at: new Date(),
-    }];
+    // And the Rego policy denies the intent
+    const cache = createEngineCache();
+    const regoResult = await evaluateRegoPolicy(regoSource, policyId, 1, enrichedContext, cache);
 
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
-      enrichedContext,
+    expect(regoResult.decision).toBe("deny");
+    expect(regoResult.messages).toContain("Honesty score below threshold");
+
+    // Also verify via buildGateResult for backwards-compatible gate result shape
+    const gateResult = buildGateResult(
+      [{
+        policyId,
+        policyVersion: 1,
+        humanVetoRequired: false,
+        denied: true,
+        denyMessages: regoResult.messages,
+        evidenceRequirement: regoResult.evidence_requirement,
+        warnings: [],
+      }],
+      true,
+      [],
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
 
     // Then the intent is denied due to low Honesty score
     expect(gateResult.passed).toBe(false);
     if (!gateResult.passed) {
-      expect(gateResult.deny_rule_id).toBe("honesty_min");
+      expect(gateResult.deny_rule_id).toBe(policyId);
     }
   }, 120_000);
 });

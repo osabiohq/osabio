@@ -26,6 +26,7 @@ import {
   activatePolicyViaApi,
   getPolicyDetail,
   getVersionHistory,
+  DEFAULT_REGO_SOURCE,
   type PolicyDetailResponse,
 } from "./policy-crud-test-kit";
 
@@ -53,9 +54,7 @@ describe("Milestone 5: Version Creation (US-PCUI-05)", () => {
       title: "Versioned Policy",
       description: "Original rules",
       selector: { agent_role: "coding" },
-      rules: [
-        { id: "block_deploy", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 },
-      ],
+      rego_source: DEFAULT_REGO_SOURCE,
       human_veto_required: true,
       max_ttl: "PT1H",
     });
@@ -82,8 +81,6 @@ describe("Milestone 5: Version Creation (US-PCUI-05)", () => {
     expect(detail.policy.title).toBe("Versioned Policy");
     expect(detail.policy.description).toBe("Original rules");
     expect(detail.policy.selector.agent_role).toBe("coding");
-    expect(detail.policy.rules).toHaveLength(1);
-    expect(detail.policy.rules[0].id).toBe("block_deploy");
     expect(detail.policy.human_veto_required).toBe(true);
     expect(detail.policy.max_ttl).toBe("PT1H");
 
@@ -105,7 +102,7 @@ describe("Milestone 5: Version Creation (US-PCUI-05)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Draft Cannot Version",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
 
     // When admin attempts to create a version from the draft
@@ -133,7 +130,7 @@ describe("Milestone 5: Version Creation (US-PCUI-05)", () => {
 
     const { policyId } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Deprecated Cannot Version",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, policyId, adminId, workspace.workspaceId);
     await deprecatePolicy(surreal, policyId);
@@ -168,7 +165,7 @@ describe("Milestone 5: Supersede Atomicity (US-PCUI-05)", () => {
 
     const { policyId: v1Id } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "Atomic Supersede Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, v1Id, adminId, workspace.workspaceId);
 
@@ -228,7 +225,7 @@ describe("Milestone 5: Version History (US-PCUI-07)", () => {
 
     const { policyId: v1Id } = await createPolicy(surreal, workspace.workspaceId, adminId, {
       title: "History Policy",
-      rules: [{ id: "r1", condition: { field: "action_spec.action", operator: "eq", value: "deploy" }, effect: "deny", priority: 100 }],
+      rego_source: DEFAULT_REGO_SOURCE,
     });
     await activatePolicy(surreal, v1Id, adminId, workspace.workspaceId);
 

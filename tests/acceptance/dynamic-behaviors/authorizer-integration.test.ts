@@ -3,15 +3,14 @@
  *
  * Validates that the Authorizer reads dynamic behavior scores from
  * behavior records with arbitrary metric_type values, and enforces
- * policy thresholds to approve or deny agent intents.
+ * Rego policy thresholds to approve or deny agent intents.
  *
  * Driving ports:
  *   enrichBehaviorScores (context enrichment function)
- *   evaluateRulesAgainstContext (pure policy gate pipeline)
+ *   evaluateRegoPolicy (Rego policy evaluation)
  *   SurrealDB direct queries (seeding + verification)
  */
 import { describe, expect, it } from "bun:test";
-import { RecordId } from "surrealdb";
 import {
   setupDynamicBehaviorsSuite,
   setupBehaviorWorkspace,
@@ -23,12 +22,11 @@ import {
 } from "./dynamic-behaviors-test-kit";
 import type { IntentEvaluationContext } from "../../../app/src/server/policy/types";
 import {
-  evaluateRulesAgainstContext,
-  collectAndSortRules,
-  buildGateResult,
-} from "../../../app/src/server/policy/policy-gate";
+  evaluateRegoPolicy,
+  createEngineCache,
+} from "../../../app/src/server/policy/rego-evaluator";
+import { buildGateResult } from "../../../app/src/server/policy/policy-gate";
 import { enrichBehaviorScores } from "../../../app/src/server/behavior/queries";
-import type { PolicyRecord } from "../../../app/src/server/policy/types";
 
 const getRuntime = setupDynamicBehaviorsSuite("authorizer_integration");
 
@@ -37,26 +35,79 @@ const getRuntime = setupDynamicBehaviorsSuite("authorizer_integration");
 // =============================================================================
 
 // ---------------------------------------------------------------------------
-// Helper: build policies array for gate evaluation
+// Helper: Rego source for behavior threshold deny rules
 // ---------------------------------------------------------------------------
-function buildPolicies(
+
+/** Rego source that denies when a single behavior score is below a threshold. */
+function honestyThresholdRego(threshold: number): string {
+  return `package osabio.policy
+
+deny["Honesty score below threshold"] {
+  input.behavior_scores.Honesty < ${threshold}
+}
+
+default allow = true
+`;
+}
+
+/** Rego source that denies when Collaboration score is below a threshold. */
+function collaborationThresholdRego(threshold: number): string {
+  return `package osabio.policy
+
+deny["Collaboration score below threshold"] {
+  input.behavior_scores.Collaboration < ${threshold}
+}
+
+default allow = true
+`;
+}
+
+/** Rego source that denies when Honesty OR Evidence_Based is below threshold. */
+function multiScoreThresholdRego(
+  honestyThreshold: number,
+  evidenceThreshold: number,
+): string {
+  return `package osabio.policy
+
+deny["Honesty score below threshold"] {
+  input.behavior_scores.Honesty < ${honestyThreshold}
+}
+
+deny["Evidence_Based score below threshold"] {
+  input.behavior_scores.Evidence_Based < ${evidenceThreshold}
+}
+
+default allow = true
+`;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: evaluate Rego and build gate result
+// ---------------------------------------------------------------------------
+async function evaluateAndBuildGateResult(
+  regoSource: string,
   policyId: string,
-  adminId: string,
-  workspaceId: string,
-  rules: PolicyRecord["rules"],
-): PolicyRecord[] {
-  return [{
-    id: new RecordId("policy", policyId),
-    title: "Dynamic Behavior Gate",
-    version: 1,
-    status: "active",
-    selector: {},
-    rules,
-    human_veto_required: false,
-    created_by: new RecordId("identity", adminId),
-    workspace: new RecordId("workspace", workspaceId),
-    created_at: new Date(),
-  }];
+  context: IntentEvaluationContext,
+): Promise<{ gateResult: ReturnType<typeof buildGateResult>; regoResult: Awaited<ReturnType<typeof evaluateRegoPolicy>> }> {
+  const cache = createEngineCache();
+  const regoResult = await evaluateRegoPolicy(regoSource, policyId, 1, context, cache);
+  const denied = regoResult.decision === "deny";
+
+  const gateResult = buildGateResult(
+    [{
+      policyId,
+      policyVersion: 1,
+      humanVetoRequired: false,
+      denied,
+      denyMessages: regoResult.messages,
+      evidenceRequirement: regoResult.evidence_requirement,
+      warnings: [],
+    }],
+    denied,
+    [],
+  );
+
+  return { gateResult, regoResult };
 }
 
 // =============================================================================
@@ -93,19 +144,11 @@ describe("Happy Path: Intent denied when dynamic Honesty score below threshold (
       definitionId,
     });
 
-    // And a policy requires behavior_scores.Honesty >= 0.50
+    // And a Rego policy requires behavior_scores.Honesty >= 0.50
+    const regoSource = honestyThresholdRego(0.50);
     const { policyId } = await createBehaviorPolicy(surreal, workspaceId, adminId, {
       title: "Honesty Behavior Gate",
-      rules: [{
-        id: "honesty_min",
-        condition: {
-          field: "behavior_scores.Honesty",
-          operator: "lt",
-          value: 0.50,
-        },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: regoSource,
     });
 
     // When the Authorizer enriches the context
@@ -124,23 +167,16 @@ describe("Happy Path: Intent denied when dynamic Honesty score below threshold (
     expect(enrichedContext.behavior_scores!.Honesty).toBe(0.05);
 
     // And the policy gate denies the intent
-    const policies = buildPolicies(policyId, adminId, workspaceId, [{
-      id: "honesty_min",
-      condition: { field: "behavior_scores.Honesty", operator: "lt", value: 0.50 },
-      effect: "deny",
-      priority: 100,
-    }]);
-
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+    const { gateResult, regoResult } = await evaluateAndBuildGateResult(
+      regoSource,
+      policyId,
       enrichedContext,
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
 
+    expect(regoResult.decision).toBe("deny");
     expect(gateResult.passed).toBe(false);
     if (!gateResult.passed) {
-      expect(gateResult.deny_rule_id).toBe("honesty_min");
+      expect(gateResult.deny_rule_id).toBe(policyId);
     }
   }, 60_000);
 });
@@ -192,29 +228,17 @@ describe("Happy Path: Intent allowed when dynamic Honesty score above threshold 
     const enrichedContext = await enrichBehaviorScores(surreal, agentId, baseContext);
     expect(enrichedContext.behavior_scores!.Honesty).toBe(0.88);
 
+    const regoSource = honestyThresholdRego(0.50);
     const { policyId } = await createBehaviorPolicy(surreal, workspaceId, adminId, {
       title: "Honesty Behavior Gate",
-      rules: [{
-        id: "honesty_min",
-        condition: { field: "behavior_scores.Honesty", operator: "lt", value: 0.50 },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: regoSource,
     });
 
-    const policies = buildPolicies(policyId, adminId, workspaceId, [{
-      id: "honesty_min",
-      condition: { field: "behavior_scores.Honesty", operator: "lt", value: 0.50 },
-      effect: "deny",
-      priority: 100,
-    }]);
-
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+    const { gateResult } = await evaluateAndBuildGateResult(
+      regoSource,
+      policyId,
       enrichedContext,
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
 
     // Then the policy gate allows the intent
     expect(gateResult.passed).toBe(true);
@@ -256,37 +280,24 @@ describe("Happy Path: Missing score for new metric does not deny intent (US-DB-0
 
     const enrichedContext = await enrichBehaviorScores(surreal, agentId, baseContext);
 
-    // And a policy references behavior_scores.Collaboration >= 0.50
+    // And a Rego policy references behavior_scores.Collaboration < 0.50
+    // In Rego, accessing a missing field evaluates to undefined, so the
+    // deny rule body is not satisfied -- the intent is allowed.
+    const regoSource = collaborationThresholdRego(0.50);
     const { policyId } = await createBehaviorPolicy(surreal, workspaceId, adminId, {
       title: "Collaboration Gate",
-      rules: [{
-        id: "collab_min",
-        condition: { field: "behavior_scores.Collaboration", operator: "lt", value: 0.50 },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: regoSource,
     });
 
-    const policies = buildPolicies(policyId, adminId, workspaceId, [{
-      id: "collab_min",
-      condition: { field: "behavior_scores.Collaboration", operator: "lt", value: 0.50 },
-      effect: "deny",
-      priority: 100,
-    }]);
-
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+    const { gateResult, regoResult } = await evaluateAndBuildGateResult(
+      regoSource,
+      policyId,
       enrichedContext,
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
 
-    // Then the intent is NOT denied (missing score is not a violation)
+    // Then the intent is NOT denied (missing score => undefined in Rego => deny rule not satisfied)
+    expect(regoResult.decision).toBe("allow");
     expect(gateResult.passed).toBe(true);
-
-    // And a warning is emitted for the missing field
-    expect(warnings.length).toBeGreaterThan(0);
-    expect(warnings[0].field).toBe("behavior_scores.Collaboration");
   }, 60_000);
 });
 
@@ -338,7 +349,9 @@ describe("Error Path: Multiple behavior scores evaluated together (US-DB-003)", 
       definitionId: evidenceDefId,
     });
 
-    // And policy rules require both >= 0.50
+    // And a Rego policy requires both >= 0.50
+    const regoSource = multiScoreThresholdRego(0.50, 0.50);
+
     const baseContext: IntentEvaluationContext = {
       goal: "Propose architecture change",
       reasoning: "New approach identified",
@@ -352,44 +365,16 @@ describe("Error Path: Multiple behavior scores evaluated together (US-DB-003)", 
     expect(enrichedContext.behavior_scores!.Honesty).toBe(0.92);
     expect(enrichedContext.behavior_scores!.Evidence_Based).toBe(0.15);
 
-    const policies: PolicyRecord[] = [{
-      id: new RecordId("policy", `policy-${crypto.randomUUID()}`),
-      title: "Multi Behavior Gate",
-      version: 1,
-      status: "active",
-      selector: {},
-      rules: [
-        {
-          id: "honesty_min",
-          condition: { field: "behavior_scores.Honesty", operator: "lt", value: 0.50 },
-          effect: "deny",
-          priority: 100,
-        },
-        {
-          id: "evidence_min",
-          condition: { field: "behavior_scores.Evidence_Based", operator: "lt", value: 0.50 },
-          effect: "deny",
-          priority: 90,
-        },
-      ],
-      human_veto_required: false,
-      created_by: new RecordId("identity", adminId),
-      workspace: new RecordId("workspace", workspaceId),
-      created_at: new Date(),
-    }];
-
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+    const { gateResult, regoResult } = await evaluateAndBuildGateResult(
+      regoSource,
+      `policy-multi-${crypto.randomUUID()}`,
       enrichedContext,
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
 
     // Then the intent is denied for the failing metric
+    expect(regoResult.decision).toBe("deny");
+    expect(regoResult.messages).toContain("Evidence_Based score below threshold");
     expect(gateResult.passed).toBe(false);
-    if (!gateResult.passed) {
-      expect(gateResult.deny_rule_id).toBe("evidence_min");
-    }
   }, 60_000);
 });
 
@@ -420,16 +405,10 @@ describe("Happy Path: Recovery threshold is symmetric with restriction (US-DB-00
       "coding-agent-alpha",
     );
 
-    const rules = [{
-      id: "honesty_min",
-      condition: { field: "behavior_scores.Honesty", operator: "lt", value: 0.50 },
-      effect: "deny" as const,
-      priority: 100,
-    }];
-
+    const regoSource = honestyThresholdRego(0.50);
     const { policyId } = await createBehaviorPolicy(surreal, workspaceId, adminId, {
       title: "Honesty Gate",
-      rules,
+      rego_source: regoSource,
     });
 
     const baseContext: IntentEvaluationContext = {
@@ -449,9 +428,8 @@ describe("Happy Path: Recovery threshold is symmetric with restriction (US-DB-00
     });
 
     let enriched = await enrichBehaviorScores(surreal, agentId, baseContext);
-    let sorted = collectAndSortRules(buildPolicies(policyId, adminId, workspaceId, rules));
-    let result = buildGateResult(...Object.values(evaluateRulesAgainstContext(sorted, enriched)) as [any, any, any]);
-    expect(result.passed).toBe(false);
+    let { gateResult } = await evaluateAndBuildGateResult(regoSource, policyId, enriched);
+    expect(gateResult.passed).toBe(false);
 
     // When score recovers to exactly 0.50 (at threshold boundary)
     await createScoredBehaviorRecord(surreal, workspaceId, agentId, {
@@ -461,11 +439,10 @@ describe("Happy Path: Recovery threshold is symmetric with restriction (US-DB-00
     });
 
     enriched = await enrichBehaviorScores(surreal, agentId, baseContext);
-    sorted = collectAndSortRules(buildPolicies(policyId, adminId, workspaceId, rules));
-    result = buildGateResult(...Object.values(evaluateRulesAgainstContext(sorted, enriched)) as [any, any, any]);
+    ({ gateResult } = await evaluateAndBuildGateResult(regoSource, policyId, enriched));
 
     // Then the intent is allowed (0.50 is NOT less than 0.50)
-    expect(result.passed).toBe(true);
+    expect(gateResult.passed).toBe(true);
   }, 60_000);
 });
 
@@ -503,31 +480,20 @@ describe("Error Path: New agent with no scores is not blocked by behavior policy
     // Then behavior_scores is empty
     expect(enrichedContext.behavior_scores).toEqual({});
 
+    const regoSource = honestyThresholdRego(0.50);
     const { policyId } = await createBehaviorPolicy(surreal, workspaceId, adminId, {
       title: "Honesty Gate",
-      rules: [{
-        id: "honesty_min",
-        condition: { field: "behavior_scores.Honesty", operator: "lt", value: 0.50 },
-        effect: "deny",
-        priority: 100,
-      }],
+      rego_source: regoSource,
     });
 
-    const policies = buildPolicies(policyId, adminId, workspaceId, [{
-      id: "honesty_min",
-      condition: { field: "behavior_scores.Honesty", operator: "lt", value: 0.50 },
-      effect: "deny",
-      priority: 100,
-    }]);
-
-    const sortedRules = collectAndSortRules(policies);
-    const { evaluatedRules, denyMatched, warnings } = evaluateRulesAgainstContext(
-      sortedRules,
+    const { gateResult, regoResult } = await evaluateAndBuildGateResult(
+      regoSource,
+      policyId,
       enrichedContext,
     );
-    const gateResult = buildGateResult(evaluatedRules, denyMatched, warnings);
 
-    // Then the intent is NOT denied
+    // Then the intent is NOT denied (missing field => undefined in Rego => deny rule not satisfied)
+    expect(regoResult.decision).toBe("allow");
     expect(gateResult.passed).toBe(true);
   }, 60_000);
 });

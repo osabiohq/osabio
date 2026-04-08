@@ -263,6 +263,7 @@ export async function createTestPolicy(
       status: "active",
       selector: {},
       rules: overrides.rules ?? [],
+      rego_source: "package osabio.policy\ndefault allow = true",
       human_veto_required: false,
       created_by: identityRecord,
       workspace: workspaceRecord,
