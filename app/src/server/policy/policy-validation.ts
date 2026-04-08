@@ -5,7 +5,7 @@
  * All domain errors are values — no exceptions thrown.
  */
 
-import { compileRego, type CompileError } from "./rego-evaluator";
+import { compileRego, POLICY_PACKAGE_NAME, type CompileError } from "./rego-evaluator";
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -19,7 +19,7 @@ export type ValidationResult =
 // Required package declaration
 // ---------------------------------------------------------------------------
 
-const REQUIRED_PACKAGE = "osabio.policy";
+const REQUIRED_PACKAGE = POLICY_PACKAGE_NAME;
 
 // ---------------------------------------------------------------------------
 // Top-level body validation
@@ -57,8 +57,52 @@ const hasRequiredPackage = (regoSource: string): boolean => {
   // Check that the Rego source declares "package osabio.policy"
   // Package declaration appears as: `package osabio.policy`
   // with possible leading whitespace and optional trailing content on the line
-  const packagePattern = /^\s*package\s+osabio\.policy\s*$/m;
+  const escapedPackage = REQUIRED_PACKAGE.replace(/\./g, "\\.");
+  const packagePattern = new RegExp(`^\\s*package\\s+${escapedPackage}\\s*$`, "m");
   return packagePattern.test(regoSource);
+};
+
+// ---------------------------------------------------------------------------
+// Intent context validation (for test endpoint)
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates the IntentEvaluationContext shape submitted to the policy test endpoint.
+ *
+ * Only action_spec is required — it must be a non-null object containing
+ * action (string) and provider (string). All other fields are optional.
+ */
+export const validateIntentContext = (
+  body: unknown,
+): ValidationResult => {
+  if (body === null || body === undefined || typeof body !== "object") {
+    return { valid: false, errors: ["request body must be an object"] };
+  }
+
+  const parsed = body as Record<string, unknown>;
+  const errors: string[] = [];
+
+  const actionSpec = parsed.action_spec;
+  if (actionSpec === null || actionSpec === undefined || typeof actionSpec !== "object") {
+    errors.push("action_spec is required and must be an object");
+    return { valid: false, errors };
+  }
+
+  const spec = actionSpec as Record<string, unknown>;
+
+  if (typeof spec.action !== "string" || spec.action.trim() === "") {
+    errors.push("action_spec.action is required and must be a non-empty string");
+  }
+
+  if (typeof spec.provider !== "string" || spec.provider.trim() === "") {
+    errors.push("action_spec.provider is required and must be a non-empty string");
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+
+  return { valid: true };
 };
 
 export async function validatePolicyCreateBody(

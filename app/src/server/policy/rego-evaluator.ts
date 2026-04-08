@@ -119,6 +119,19 @@ const parseRegorusErrorString = (errorString: string): CompileError[] => {
 };
 
 // ---------------------------------------------------------------------------
+// Package name constant
+// ---------------------------------------------------------------------------
+
+/**
+ * The Rego package name that all Osabio policies must declare.
+ * Used in both compilation validation and runtime package checking.
+ */
+export const POLICY_PACKAGE_NAME = "osabio.policy";
+
+/** Full data path prefix used when querying Regorus engine results. */
+const POLICY_DATA_PATH = `data.${POLICY_PACKAGE_NAME}`;
+
+// ---------------------------------------------------------------------------
 // evalQuery helpers
 // ---------------------------------------------------------------------------
 
@@ -136,13 +149,13 @@ const extractQueryValue = (queryResultJson: string): unknown => {
 };
 
 const extractAllowValue = (engine: RegorusEngine): boolean => {
-  const raw = engine.evalQuery("data.osabio.policy.allow");
+  const raw = engine.evalQuery(`${POLICY_DATA_PATH}.allow`);
   const value = extractQueryValue(raw);
   return value === true;
 };
 
 const extractDenyMessages = (engine: RegorusEngine): string[] => {
-  const raw = engine.evalQuery("data.osabio.policy.deny");
+  const raw = engine.evalQuery(`${POLICY_DATA_PATH}.deny`);
   const value = extractQueryValue(raw);
   if (!Array.isArray(value)) {
     return [];
@@ -153,7 +166,7 @@ const extractDenyMessages = (engine: RegorusEngine): string[] => {
 const extractEvidenceRequirement = (
   engine: RegorusEngine,
 ): RegoEvaluationResult["evidence_requirement"] => {
-  const raw = engine.evalQuery("data.osabio.policy.evidence_requirement");
+  const raw = engine.evalQuery(`${POLICY_DATA_PATH}.evidence_requirement`);
   const value = extractQueryValue(raw);
 
   if (value === undefined || value === null || typeof value !== "object") {
@@ -216,12 +229,10 @@ const buildDecision = (
 // Package validation
 // ---------------------------------------------------------------------------
 
-const REQUIRED_PACKAGE = "data.osabio.policy";
-
 const validatePackage = (engine: RegorusEngine): void => {
   const packages = engine.getPackages();
-  if (!packages.includes(REQUIRED_PACKAGE)) {
-    throw new Error("policy must declare package osabio.policy");
+  if (!packages.includes(POLICY_DATA_PATH)) {
+    throw new Error(`policy must declare package ${POLICY_PACKAGE_NAME}`);
   }
 };
 

@@ -4,10 +4,17 @@ import { jsonError, jsonResponse } from "../http/response";
 import type { ServerDependencies } from "../runtime/types";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import { activatePolicy, buildVersionChain, createPolicy, deprecatePolicy, getPolicyById, getPolicyEdges, getVersionChain, listWorkspacePolicies } from "./policy-queries";
-import { validatePolicyCreateBody } from "./policy-validation";
+import { validateIntentContext, validatePolicyCreateBody } from "./policy-validation";
 import { compileRego, createEngineCache, evaluateRegoPolicy } from "./rego-evaluator";
 import type { IntentEvaluationContext, PolicyRecord, PolicySelector, PolicyStatus } from "./types";
 import { log } from "../telemetry/logger";
+
+// ---------------------------------------------------------------------------
+// Policy source size limit
+// ---------------------------------------------------------------------------
+
+/** Maximum allowed Rego source size before WASM compilation is attempted. */
+const MAX_REGO_SOURCE_SIZE = 100_000;
 
 // ---------------------------------------------------------------------------
 // Pure identity guard
@@ -536,14 +543,21 @@ async function handleTestPolicy(
     return jsonError("invalid JSON body", 400);
   }
 
-  const parsed = body as Record<string, unknown>;
-  if (!parsed.action_spec || typeof parsed.action_spec !== "object") {
-    return jsonError("action_spec is required", 400);
+  const contextValidation = validateIntentContext(body);
+  if (!contextValidation.valid) {
+    return jsonError(contextValidation.errors[0], 400);
   }
 
   const policy = await getPolicyById(deps.surreal, policyId, workspaceRecord);
   if (!policy) {
     return jsonError("policy not found", 404);
+  }
+
+  if (policy.rego_source.length > MAX_REGO_SOURCE_SIZE) {
+    return jsonResponse(
+      { error: "Policy Rego source exceeds maximum size" },
+      413,
+    );
   }
 
   try {
@@ -552,7 +566,7 @@ async function handleTestPolicy(
       policy.rego_source,
       policyId,
       policy.version,
-      parsed as unknown as IntentEvaluationContext,
+      body as unknown as IntentEvaluationContext,
       cache,
     );
     return jsonResponse(result, 200);

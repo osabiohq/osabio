@@ -233,8 +233,23 @@ describe("evaluatePolicyGate integration", () => {
       "../../app/src/server/policy/policy-gate"
     );
 
+    let queryCallCount = 0;
+    const queriesReceived: string[] = [];
+
     const mockSurreal = {
-      query: async () => [{ policies: [] }],
+      query: async (sql: string) => {
+        queryCallCount++;
+        queriesReceived.push(sql);
+        // Validate that the query uses expected policy graph relations
+        const hasExpectedRelations =
+          sql.includes("governing") || sql.includes("protects") || sql.includes("policy");
+        if (!hasExpectedRelations) {
+          throw new Error(
+            `mockSurreal: unexpected query — expected policy relation keywords, got: ${sql}`,
+          );
+        }
+        return [{ policies: [] }];
+      },
     } as any;
 
     const result = await evaluatePolicyGate(
@@ -243,6 +258,9 @@ describe("evaluatePolicyGate integration", () => {
       new RecordId("workspace", "test-ws"),
       makeContext(),
     );
+
+    // Verify the mock was actually called (not bypassed)
+    expect(queryCallCount).toBeGreaterThan(0);
 
     expect(result.passed).toBe(true);
     if (result.passed) {
