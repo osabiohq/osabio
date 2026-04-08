@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "fbce8199750e",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/reactive/milestone-2-agent-activator.test.ts",
+    "tests/acceptance/workspace/workspace-description.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fb/ce8199750e/0/metadata.json",
+      "transcript": "/fb/ce8199750e/0/full.jsonl",
+      "context": "/fb/ce8199750e/0/context.md",
+      "content_hash": "/fb/ce8199750e/0/content_hash.txt",
+      "prompt": "/fb/ce8199750e/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 9,
+    "cache_creation_tokens": 3373,
+    "cache_read_tokens": 1202703,
+    "output_tokens": 1937,
+    "api_call_count": 7
+  }
+}

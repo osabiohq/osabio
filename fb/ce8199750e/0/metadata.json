@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "fbce8199750e",
+  "session_id": "a028a89a-0237-4e00-84a6-6038f6124b54",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T04:37:05.417596Z",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/reactive/milestone-2-agent-activator.test.ts",
+    "tests/acceptance/workspace/workspace-description.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "cbf66a53d9e9",
+  "checkpoint_transcript_start": 1148,
+  "transcript_lines_at_start": 1148,
+  "token_usage": {
+    "input_tokens": 9,
+    "cache_creation_tokens": 3373,
+    "cache_read_tokens": 1202703,
+    "output_tokens": 1937,
+    "api_call_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T04:37:04.781108Z",
+    "agent_lines": 4,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 4,
+    "agent_percentage": 100
+  }
+}
