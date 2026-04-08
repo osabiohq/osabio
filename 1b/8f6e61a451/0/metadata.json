@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "1b8f6e61a451",
+  "session_id": "045f56f7-7069-4229-a52b-f8c490c37979",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T06:59:43.683924Z",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/components/policy/CreatePolicyDialog.tsx",
+    "app/src/client/components/policy/RegoEditor.tsx",
+    "app/src/server/policy/rego-evaluator.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "ab3297a2b575",
+  "token_usage": {
+    "input_tokens": 26,
+    "cache_creation_tokens": 62691,
+    "cache_read_tokens": 1405539,
+    "output_tokens": 10231,
+    "api_call_count": 22
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T06:59:43.561025Z",
+    "agent_lines": 85,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 85,
+    "agent_percentage": 100
+  }
+}

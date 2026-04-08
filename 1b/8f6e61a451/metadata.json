@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "1b8f6e61a451",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/src/client/components/policy/CreatePolicyDialog.tsx",
+    "app/src/client/components/policy/RegoEditor.tsx",
+    "app/src/server/policy/rego-evaluator.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/1b/8f6e61a451/0/metadata.json",
+      "transcript": "/1b/8f6e61a451/0/full.jsonl",
+      "context": "/1b/8f6e61a451/0/context.md",
+      "content_hash": "/1b/8f6e61a451/0/content_hash.txt",
+      "prompt": "/1b/8f6e61a451/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 26,
+    "cache_creation_tokens": 62691,
+    "cache_read_tokens": 1405539,
+    "output_tokens": 10231,
+    "api_call_count": 22
+  }
+}
