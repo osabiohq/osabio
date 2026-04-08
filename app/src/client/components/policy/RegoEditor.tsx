@@ -92,12 +92,18 @@ export function RegoEditor({ value, onChange, readOnly = false, showValidate = f
       const result = await validateRegoSource(workspaceId, value);
       setValidationResult(result);
 
-      // Highlight error lines in the editor
+      // Add gutter markers on error lines
       const editor = editorRef.current;
-      if (editor && !result.success) {
-        for (const error of result.errors) {
-          const lineIndex = Math.max(0, error.line - 1);
-          editor.addLineClass(lineIndex, "background", "cm-error-line");
+      if (editor) {
+        editor.clearGutter("error-gutter");
+        if (!result.success) {
+          for (const error of result.errors) {
+            const lineIndex = Math.max(0, error.line - 1);
+            const marker = document.createElement("div");
+            marker.className = "error-marker";
+            marker.title = error.message;
+            editor.setGutterMarker(lineIndex, "error-gutter", marker);
+          }
         }
       }
     } catch (err) {
@@ -114,13 +120,10 @@ export function RegoEditor({ value, onChange, readOnly = false, showValidate = f
     (_editor: unknown, _data: unknown, newValue: string) => {
       if (!readOnly) {
         setValidationResult(undefined);
-        // Clear error line highlights
+        // Clear error gutter markers
         const editor = editorRef.current;
         if (editor) {
-          const lineCount = editor.lineCount();
-          for (let i = 0; i < lineCount; i++) {
-            editor.removeLineClass(i, "background", "cm-error-line");
-          }
+          editor.clearGutter("error-gutter");
         }
         onChange(newValue);
       }
@@ -131,6 +134,7 @@ export function RegoEditor({ value, onChange, readOnly = false, showValidate = f
   const options: import("codemirror").EditorConfiguration = {
     mode: "rego",
     lineNumbers: true,
+    gutters: ["CodeMirror-linenumbers", "error-gutter"],
     matchBrackets: true,
     readOnly: readOnly ? true : false,
     theme: "default",
@@ -138,7 +142,17 @@ export function RegoEditor({ value, onChange, readOnly = false, showValidate = f
 
   return (
     <div className="flex flex-col gap-2">
-      <style>{`.cm-error-line { background-color: rgba(239, 68, 68, 0.15); }`}</style>
+      <style>{`
+        .error-gutter { width: 16px; }
+        .error-marker {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background-color: rgb(239, 68, 68);
+          margin: 2px auto;
+          cursor: pointer;
+        }
+      `}</style>
       <div className="overflow-hidden rounded-md border border-border">
         <CodeMirror
           value={value}
