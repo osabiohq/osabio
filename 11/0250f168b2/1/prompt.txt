@@ -1,0 +1,9 @@
+.gitmodules is missing for regorus
+
+---
+
+add regorus as gitsubmodule vendor/regorus-src
+
+---
+
+commit and push
