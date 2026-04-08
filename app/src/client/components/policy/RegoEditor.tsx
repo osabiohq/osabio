@@ -1,7 +1,10 @@
 /**
  * RegoEditor: CodeMirror 5 editor with Rego syntax highlighting.
  *
- * Wraps react-codemirror2 Controlled component with:
+ * Uses direct CodeMirror 5 integration (no react-codemirror2 wrapper) to
+ * avoid double-render issues with React StrictMode and Dialog mounts.
+ *
+ * Features:
  * - Rego syntax highlighting (codemirror-rego mode)
  * - Line numbers
  * - Bracket matching
@@ -9,10 +12,11 @@
  * - Optional validation (calls POST /policies/validate)
  */
 
-import { useCallback, useRef, useState } from "react";
-import { Controlled as CodeMirror } from "react-codemirror2";
+import { useCallback, useEffect, useRef, useState } from "react";
+import CodeMirror from "codemirror";
 import { useWorkspaceState } from "../../stores/workspace-state";
 import "codemirror/lib/codemirror.css";
+import "codemirror/theme/material-darker.css";
 import "codemirror/addon/edit/matchbrackets";
 import "codemirror-rego/mode";
 
@@ -79,10 +83,51 @@ type RegoEditorProps = {
 
 export function RegoEditor({ value, onChange, readOnly = false, showValidate = false }: RegoEditorProps) {
   const workspaceId = useWorkspaceState((s) => s.workspaceId);
-  const editorRef = useRef<import("codemirror").Editor | undefined>(undefined);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<CodeMirror.Editor | undefined>(undefined);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | undefined>();
+
+  // Initialize CodeMirror once on mount, destroy on unmount
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const editor = CodeMirror(container, {
+      value,
+      mode: "rego",
+      lineNumbers: true,
+      gutters: ["CodeMirror-linenumbers", "error-gutter"],
+      matchBrackets: true,
+      readOnly: readOnly ? true : false,
+      theme: "material-darker",
+    });
+
+    editor.on("change", (instance) => {
+      onChangeRef.current(instance.getValue());
+    });
+
+    editorRef.current = editor;
+
+    return () => {
+      const wrapper = editor.getWrapperElement();
+      wrapper.parentNode?.removeChild(wrapper);
+      editorRef.current = undefined;
+    };
+    // Only run on mount/unmount — value synced separately below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly]);
+
+  // Sync external value changes into the editor (e.g. form reset)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (editor && editor.getValue() !== value) {
+      editor.setValue(value);
+    }
+  }, [value]);
 
   const handleValidate = useCallback(async () => {
     if (!workspaceId || !value.trim()) return;
@@ -116,29 +161,14 @@ export function RegoEditor({ value, onChange, readOnly = false, showValidate = f
     }
   }, [workspaceId, value]);
 
-  const handleBeforeChange = useCallback(
-    (_editor: unknown, _data: unknown, newValue: string) => {
-      if (!readOnly) {
-        setValidationResult(undefined);
-        // Clear error gutter markers
-        const editor = editorRef.current;
-        if (editor) {
-          editor.clearGutter("error-gutter");
-        }
-        onChange(newValue);
-      }
-    },
-    [readOnly, onChange],
-  );
-
-  const options: import("codemirror").EditorConfiguration = {
-    mode: "rego",
-    lineNumbers: true,
-    gutters: ["CodeMirror-linenumbers", "error-gutter"],
-    matchBrackets: true,
-    readOnly: readOnly ? true : false,
-    theme: "default",
-  };
+  // Clear validation state when content changes
+  useEffect(() => {
+    setValidationResult(undefined);
+    const editor = editorRef.current;
+    if (editor) {
+      editor.clearGutter("error-gutter");
+    }
+  }, [value]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -153,14 +183,7 @@ export function RegoEditor({ value, onChange, readOnly = false, showValidate = f
           cursor: pointer;
         }
       `}</style>
-      <div className="overflow-hidden rounded-md border border-border">
-        <CodeMirror
-          value={value}
-          options={options}
-          onBeforeChange={handleBeforeChange}
-          editorDidMount={(editor) => { editorRef.current = editor; }}
-        />
-      </div>
+      <div ref={containerRef} className="overflow-hidden rounded-md border border-border [&_.CodeMirror]:h-auto" />
 
       {showValidate && !readOnly && (
         <div className="flex flex-col gap-1.5">

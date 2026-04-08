@@ -260,9 +260,14 @@ export const createEngineCache = (): Map<string, RegorusEngine> =>
 // ---------------------------------------------------------------------------
 
 /**
- * Compile a Rego source string using Regorus.
+ * Compile and validate a Rego source string using Regorus.
  *
- * Returns { success: true } when the policy parses without errors.
+ * Performs three validation stages:
+ * 1. Parse — addPolicy must succeed (catches syntax errors)
+ * 2. Package check — must declare `package osabio.policy`
+ * 3. Evaluation probe — evalQuery with empty input (catches runtime errors)
+ *
+ * Returns { success: true } when all stages pass.
  * Returns { success: false; errors } with structured error locations otherwise.
  *
  * Throws only if the WASM module itself failed to load (fail-closed).
@@ -273,6 +278,25 @@ export const compileRego = async (source: string): Promise<CompileResult> => {
 
   try {
     engine.addPolicy("policy.rego", source);
+
+    // Stage 2: package validation
+    const packages = engine.getPackages();
+    if (!packages.includes(POLICY_DATA_PATH)) {
+      return {
+        success: false,
+        errors: [{
+          line: 1,
+          column: 1,
+          message: `policy must declare "package ${POLICY_PACKAGE_NAME}" (found: ${packages.join(", ") || "none"})`,
+        }],
+      };
+    }
+
+    // Stage 3: evaluation probe — catches runtime errors (undefined refs, type mismatches)
+    engine.setInputJson("{}");
+    engine.evalQuery(`${POLICY_DATA_PATH}.allow`);
+    engine.evalQuery(`${POLICY_DATA_PATH}.deny`);
+
     return { success: true };
   } catch (err: unknown) {
     const errorString = typeof err === "string" ? err : String(err);

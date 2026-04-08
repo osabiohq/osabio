@@ -51,7 +51,7 @@ const CONTEXT_FIELDS: Array<{ path: string; type: string; description: string }>
 // Pure form helpers
 // ---------------------------------------------------------------------------
 
-const DEFAULT_REGO_SOURCE = `package policy
+const DEFAULT_REGO_SOURCE = `package osabio.policy
 
 import future.keywords.if
 
