@@ -308,6 +308,13 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           (request) => policyHandlers.handleCreate(request.params.workspaceId, request),
         ),
       },
+      "/api/workspaces/:workspaceId/policies/validate": {
+        POST: withTracing(
+          "POST /api/workspaces/:workspaceId/policies/validate",
+          "POST",
+          (request) => policyHandlers.handleValidate(request.params.workspaceId, request),
+        ),
+      },
       "/api/workspaces/:workspaceId/policies/:policyId": {
         GET: withTracing(
           "GET /api/workspaces/:workspaceId/policies/:policyId",
@@ -355,6 +362,17 @@ export function createBrainServer(deps: ServerDependencies): ReturnType<typeof B
           "POST /api/workspaces/:workspaceId/policies/:policyId/versions",
           "POST",
           (request) => policyHandlers.handleCreateVersion(
+            request.params.workspaceId,
+            request.params.policyId,
+            request,
+          ),
+        ),
+      },
+      "/api/workspaces/:workspaceId/policies/:policyId/test": {
+        POST: withTracing(
+          "POST /api/workspaces/:workspaceId/policies/:policyId/test",
+          "POST",
+          (request) => policyHandlers.handleTest(
             request.params.workspaceId,
             request.params.policyId,
             request,

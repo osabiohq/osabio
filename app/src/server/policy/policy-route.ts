@@ -5,7 +5,8 @@ import type { ServerDependencies } from "../runtime/types";
 import { resolveWorkspaceRecord } from "../workspace/workspace-scope";
 import { activatePolicy, buildVersionChain, createPolicy, deprecatePolicy, getPolicyById, getPolicyEdges, getVersionChain, listWorkspacePolicies } from "./policy-queries";
 import { validatePolicyCreateBody } from "./policy-validation";
-import type { PolicyRecord, PolicySelector, PolicyStatus } from "./types";
+import { compileRego, createEngineCache, evaluateRegoPolicy } from "./rego-evaluator";
+import type { IntentEvaluationContext, PolicyRecord, PolicySelector, PolicyStatus } from "./types";
 import { log } from "../telemetry/logger";
 
 // ---------------------------------------------------------------------------
@@ -101,6 +102,10 @@ export function createPolicyRouteHandlers(deps: ServerDependencies) {
       handleCreatePolicyVersion(deps, workspaceId, policyId, request),
     handleVersionHistory: (workspaceId: string, policyId: string, request: Request) =>
       handleGetVersionHistory(deps, workspaceId, policyId, request),
+    handleValidate: (workspaceId: string, request: Request) =>
+      handleValidateRego(deps, workspaceId, request),
+    handleTest: (workspaceId: string, policyId: string, request: Request) =>
+      handleTestPolicy(deps, workspaceId, policyId, request),
   };
 }
 
@@ -468,5 +473,91 @@ async function handleGetVersionHistory(
   } catch (error) {
     log.error("policy.versions.failed", "Failed to get version history", error, { workspaceId, policyId });
     return jsonError("failed to get version history", 500);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/workspaces/:workspaceId/policies/validate
+// ---------------------------------------------------------------------------
+
+async function handleValidateRego(
+  deps: ServerDependencies,
+  workspaceId: string,
+  request: Request,
+): Promise<Response> {
+  const identityOrError = await resolveIdentityFromSession(deps, request);
+  if (isResponse(identityOrError)) return identityOrError;
+
+  const workspaceOrError = await resolveWorkspace(deps, workspaceId, "policy.validate.workspace_resolve.failed");
+  if (isResponse(workspaceOrError)) return workspaceOrError;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("invalid JSON body", 400);
+  }
+
+  const parsed = body as Record<string, unknown>;
+  if (!parsed.rego_source || typeof parsed.rego_source !== "string") {
+    return jsonError("rego_source is required", 400);
+  }
+
+  try {
+    const result = await compileRego(parsed.rego_source);
+    return jsonResponse(result, 200);
+  } catch (error) {
+    log.error("policy.validate.failed", "Failed to validate Rego source", error, { workspaceId });
+    return jsonError("failed to validate Rego source", 500);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/workspaces/:workspaceId/policies/:policyId/test
+// ---------------------------------------------------------------------------
+
+async function handleTestPolicy(
+  deps: ServerDependencies,
+  workspaceId: string,
+  policyId: string,
+  request: Request,
+): Promise<Response> {
+  const identityOrError = await resolveIdentityFromSession(deps, request);
+  if (isResponse(identityOrError)) return identityOrError;
+
+  const workspaceOrError = await resolveWorkspace(deps, workspaceId, "policy.test.workspace_resolve.failed");
+  if (isResponse(workspaceOrError)) return workspaceOrError;
+  const workspaceRecord = workspaceOrError;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("invalid JSON body", 400);
+  }
+
+  const parsed = body as Record<string, unknown>;
+  if (!parsed.action_spec || typeof parsed.action_spec !== "object") {
+    return jsonError("action_spec is required", 400);
+  }
+
+  const policy = await getPolicyById(deps.surreal, policyId, workspaceRecord);
+  if (!policy) {
+    return jsonError("policy not found", 404);
+  }
+
+  try {
+    const cache = createEngineCache();
+    const result = await evaluateRegoPolicy(
+      policy.rego_source,
+      policyId,
+      policy.version,
+      parsed as unknown as IntentEvaluationContext,
+      cache,
+    );
+    return jsonResponse(result, 200);
+  } catch (error) {
+    log.error("policy.test.failed", "Failed to test policy", error, { workspaceId, policyId });
+    return jsonError("failed to test policy", 500);
   }
 }
