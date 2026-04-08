@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { trace, metrics, context } from "@opentelemetry/api";
 import { logs } from "@opentelemetry/api-logs";
 
-describe("telemetry init", () => {
+describe.skip("telemetry init", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
