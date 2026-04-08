@@ -87,8 +87,8 @@ describe("Milestone 2: Policy Creation (US-PCUI-02)", () => {
     // When admin creates a policy with Rego source containing multiple rules
     const multiRuleRego = `package osabio.policy
 default allow = false
-allow { input.action_spec.action == "read" }
-deny { input.action_spec.action == "deploy" }`;
+allow if { input.action_spec.action == "read" }
+deny if { input.action_spec.action == "deploy" }`;
 
     const response = await createPolicyViaApi(
       baseUrl,

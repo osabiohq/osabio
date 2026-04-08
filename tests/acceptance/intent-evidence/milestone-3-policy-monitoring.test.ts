@@ -69,7 +69,7 @@ describe("US-10: Policy-driven evidence requirements", () => {
       title: "Financial Transaction Evidence Policy",
       description: "Requires 4 evidence references for financial transaction actions",
       selector: { resource: "intent" },
-      rego_source: "package osabio.policy\ndefault allow = true\nevidence_requirement = {\"min_count\": 4, \"required_types\": [\"decision\", \"task\"]} {\n  input.action_spec.action == \"financial_transaction\"\n}",
+      rego_source: "package osabio.policy\ndefault allow = true\nevidence_requirement = {\"min_count\": 4, \"required_types\": [\"decision\", \"task\"]} if {\n  input.action_spec.action == \"financial_transaction\"\n}",
     });
     await activatePolicy(surreal, policyId, agentId, workspace.workspaceId);
 
@@ -128,7 +128,7 @@ describe("US-10: Policy-driven evidence requirements", () => {
       title: "Data Read Evidence Policy",
       description: "Allows 1 evidence reference for data_read actions",
       selector: { resource: "intent" },
-      rego_source: "package osabio.policy\ndefault allow = true\nevidence_requirement = {\"min_count\": 1} {\n  input.action_spec.action == \"data_read\"\n}",
+      rego_source: "package osabio.policy\ndefault allow = true\nevidence_requirement = {\"min_count\": 1} if {\n  input.action_spec.action == \"data_read\"\n}",
     });
     await activatePolicy(surreal, policyId, agentId, workspace.workspaceId);
 

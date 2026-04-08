@@ -234,7 +234,6 @@ export async function createTestPolicy(
   overrides: Partial<{
     name: string;
     description: string;
-    rules: Array<Record<string, unknown>>;
   }> = {},
 ): Promise<{ policyId: string }> {
   const policyId = `policy-${crypto.randomUUID()}`;
@@ -262,7 +261,6 @@ export async function createTestPolicy(
       version: 1,
       status: "active",
       selector: {},
-      rules: overrides.rules ?? [],
       rego_source: "package osabio.policy\ndefault allow = true",
       human_veto_required: false,
       created_by: identityRecord,

@@ -42,7 +42,7 @@ const getRuntime = setupDynamicBehaviorsSuite("authorizer_integration");
 function honestyThresholdRego(threshold: number): string {
   return `package osabio.policy
 
-deny["Honesty score below threshold"] {
+deny["Honesty score below threshold"] if {
   input.behavior_scores.Honesty < ${threshold}
 }
 
@@ -54,7 +54,7 @@ default allow = true
 function collaborationThresholdRego(threshold: number): string {
   return `package osabio.policy
 
-deny["Collaboration score below threshold"] {
+deny["Collaboration score below threshold"] if {
   input.behavior_scores.Collaboration < ${threshold}
 }
 
@@ -69,11 +69,11 @@ function multiScoreThresholdRego(
 ): string {
   return `package osabio.policy
 
-deny["Honesty score below threshold"] {
+deny["Honesty score below threshold"] if {
   input.behavior_scores.Honesty < ${honestyThreshold}
 }
 
-deny["Evidence_Based score below threshold"] {
+deny["Evidence_Based score below threshold"] if {
   input.behavior_scores.Evidence_Based < ${evidenceThreshold}
 }
 

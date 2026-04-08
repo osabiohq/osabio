@@ -83,7 +83,7 @@ describe("Walking Skeleton: Behavior policy vetoes deploy intent (US-OB-04)", ()
     // And a Rego policy that denies when behavior_scores.Security_First < 0.80
     const regoSource = `package osabio.policy
 
-deny["Security_First score below threshold"] {
+deny["Security_First score below threshold"] if {
   input.behavior_scores.Security_First < 0.80
 }
 
@@ -192,7 +192,7 @@ describe("Happy Path: Intent passes when score above threshold (US-OB-04)", () =
     // And the Rego policy allows the intent
     const regoSource = `package osabio.policy
 
-deny["Security_First score below threshold"] {
+deny["Security_First score below threshold"] if {
   input.behavior_scores.Security_First < 0.80
 }
 
@@ -255,7 +255,7 @@ describe("Edge Case: Policy in testing mode observes without blocking (US-OB-04)
     // The Rego policy WOULD deny (0.42 < 0.70)
     const regoSource = `package osabio.policy
 
-deny["TDD_Adherence score below threshold"] {
+deny["TDD_Adherence score below threshold"] if {
   input.behavior_scores.TDD_Adherence < 0.70
 }
 
@@ -336,7 +336,7 @@ describe("Error Path: Agent with no behavior data encounters policy (US-OB-04)",
     // rule body is not satisfied -- the intent is allowed.
     const regoSource = `package osabio.policy
 
-deny["Security_First score below threshold"] {
+deny["Security_First score below threshold"] if {
   input.behavior_scores.Security_First < 0.80
 }
 

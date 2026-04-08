@@ -73,12 +73,6 @@ async function seedAuditPolicy(
       workspace: workspaceRecord,
       created_by: identityRecord,
       selector: { workspace: workspaceId },
-      rules: [{
-        id: "model_access",
-        condition: { field: "agent_type", operator: "eq", value: "coding-agent" },
-        effect: "allow",
-        priority: 50,
-      }],
       rego_source: "package osabio.policy\ndefault allow = true",
       created_at: new Date(),
     },

@@ -112,7 +112,7 @@ describe("Walking Skeleton: Reflex circuit from definition to restriction (Featu
     // Given a Rego policy requiring Honesty >= 0.50
     const regoSource = `package osabio.policy
 
-deny["Honesty score below threshold"] {
+deny["Honesty score below threshold"] if {
   input.behavior_scores.Honesty < 0.50
 }
 

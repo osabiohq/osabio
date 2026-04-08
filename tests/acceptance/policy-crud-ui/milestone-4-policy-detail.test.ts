@@ -186,7 +186,7 @@ describe("Milestone 4: Version History in Detail (US-PCUI-07)", () => {
     // Create v2 from v1 (which supersedes v1)
     const { policyId: v2Id } = await createPolicyVersion(
       surreal, v1Id, workspace.workspaceId, adminId,
-      'package osabio.policy\ndefault allow = false\ndeny { input.action_spec.action == "deploy" }',
+      'package osabio.policy\ndefault allow = false\ndeny if { input.action_spec.action == "deploy" }',
     );
 
     // When admin views the v2 detail

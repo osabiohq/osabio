@@ -56,18 +56,6 @@ async function createProxyModelPolicy(
       selector: { agent_role: options.agentType },
       workspace: workspaceRecord,
       created_by: identityRecord,
-      rules: [
-        {
-          id: "model_access",
-          condition: {
-            field: "model",
-            operator: "not_in",
-            value: options.allowedModels,
-          },
-          effect: "deny",
-          priority: 100,
-        },
-      ],
       human_veto_required: false,
       rego_source: "package osabio.policy\ndefault allow = true",
       created_at: new Date(),
