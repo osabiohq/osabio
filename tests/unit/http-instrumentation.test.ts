@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import * as otelApi from "@opentelemetry/api";
 import { trace, context, SpanStatusCode, type Span, type Tracer } from "@opentelemetry/api";
 
 // We test withTracing as a pure higher-order function.
@@ -56,6 +57,7 @@ describe("withTracing", () => {
       },
     }));
     mock.module("@opentelemetry/api", () => ({
+      ...otelApi,
       SpanStatusCode,
       trace: {
         getTracer: () => ({
