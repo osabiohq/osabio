@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "3ef2c71f748d",
+  "session_id": "3bb12fd5-0442-43a4-ae85-f84dd5224a3d",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T04:03:24.962073Z",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "app/src/client/components/policy/PolicyDetailPage.tsx",
+    "docs/architecture/regorus-policy-eval/architecture-design.md",
+    "docs/architecture/regorus-policy-eval/data-models.md",
+    "docs/ux/regorus-policy-eval/journey-policy-authoring.yaml",
+    "docs/architecture/regorus-policy-eval/component-boundaries.md",
+    "docs/architecture/regorus-policy-eval/technology-stack.md",
+    "docs/evolution/2026-04-08-regorus-policy-eval.md",
+    "docs/feature/regorus-policy-eval/deliver/.develop-progress.json",
+    "docs/feature/regorus-policy-eval/deliver/execution-log.json",
+    "docs/scenarios/regorus-policy-eval/test-scenarios.md",
+    "docs/scenarios/regorus-policy-eval/walking-skeleton.md",
+    "docs/ux/regorus-policy-eval/journey-policy-authoring-visual.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "27171be4362a",
+  "token_usage": {
+    "input_tokens": 11,
+    "cache_creation_tokens": 56421,
+    "cache_read_tokens": 428174,
+    "output_tokens": 1777,
+    "api_call_count": 9
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T04:03:24.935761Z",
+    "agent_lines": 1233,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1233,
+    "agent_percentage": 100
+  }
+}
