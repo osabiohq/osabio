@@ -1,0 +1,3 @@
+[submodule "vendor/regorus-src"]
+	path = vendor/regorus-src
+	url = https://github.com/microsoft/regorus.git
