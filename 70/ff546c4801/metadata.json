@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "70ff546c4801",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/unit/telemetry-init.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/70/ff546c4801/0/metadata.json",
+      "transcript": "/70/ff546c4801/0/full.jsonl",
+      "context": "/70/ff546c4801/0/context.md",
+      "content_hash": "/70/ff546c4801/0/content_hash.txt",
+      "prompt": "/70/ff546c4801/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 44,
+    "cache_creation_tokens": 168896,
+    "cache_read_tokens": 2474761,
+    "output_tokens": 6598,
+    "api_call_count": 40
+  }
+}
