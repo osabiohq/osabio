@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "3882806c609d",
+  "session_id": "f6637f5e-98ae-421d-9398-574498e7c952",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T06:05:42.990399Z",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "tests/unit/telemetry-init.test.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "c74193275473",
+  "token_usage": {
+    "input_tokens": 77,
+    "cache_creation_tokens": 271034,
+    "cache_read_tokens": 4657537,
+    "output_tokens": 11543,
+    "api_call_count": 66
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T06:05:42.716156Z",
+    "agent_lines": 5,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 5,
+    "agent_percentage": 100
+  }
+}
