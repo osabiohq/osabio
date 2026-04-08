@@ -1,0 +1,410 @@
+<system_instruction>
+You are working inside Conductor, a Mac app that lets the user run many coding agents in parallel.
+Your work should take place in the /Users/marcus/conductor/workspaces/brain-v1/san-francisco-v2 directory (unless otherwise directed), which has been set up for you to work in.
+Each workspace has a .context directory (gitignored) where you can save files to collaborate with other agents.
+The target branch for this workspace is main. Use this for actions like creating new PRs, bisecting, etc., unless you're told otherwise.
+
+By default, the user will only see the last message that you send before stopping. Include all essential information in the last message. The intermediate messages will be collapsed and accessible by the user but not displayed by default.
+
+If the user asks you to work on several unrelated tasks, you can suggest they start new workspaces.
+Sometimes the user might send you a message they meant to send in a different workspace or a different chat. If something doesn't make sense in the context of your work, just ask. 
+If the user asks for help with Conductor, you can ask them to go to "Help -> Send Feedback" to get in touch with our team.
+</system_instruction>
+
+/nw-root-why marcus@Marcuss-MacBook-Pro san-francisco-v2 % bun migrate
+$ bun run --env-file=.env schema/migrate.ts
+90 pending migration(s):
+✗ Failed: 0001_agent_session_and_subtask.surql (statement 2)
+  → The query was not executed due to a failed transaction
+error: script "migrate" exited with code 1
+
+---
+
+Base directory for this skill: /Users/marcus/.claude/skills/nw-root-why
+
+# NW-ROOT-WHY: Toyota 5 Whys Root Cause Analysis
+
+**Wave**: CROSS_WAVE
+**Agent**: Rex (nw-troubleshooter)
+
+## Overview
+
+Systematic root cause analysis using Toyota's 5 Whys with multi-causal investigation and evidence-based validation. Investigates multiple cause branches at each level|validates solutions against all identified root causes.
+
+## Agent Invocation
+
+@nw-troubleshooter
+
+Execute \*investigate-root-cause for {problem-statement}.
+
+**Configuration:**
+- investigation_depth: 5
+- multi_causal: true
+- evidence_required: true
+
+## Usage: DELIVER Wave Retrospective (Phase 3.5)
+
+When invoked as part of `/nw-deliver` Phase 3.5, analyze across 4 categories:
+
+1. **What worked well** (and why — preserve these practices)
+2. **What worked better than before** (and why — reinforce improvements)
+3. **What worked badly** (5 Whys root cause, actionable fix)
+4. **What worked worse than before** (5 Whys root cause, prevent regression)
+
+**Inputs**: Evolution document|execution-log.json|mutation results|git log.
+**Output**: Retrospective section appended to evolution document.
+**Skip**: If clean execution (no skips|no failures|no tooling issues), generate brief summary only.
+
+Tag items requiring nWave framework changes as **meta-improvements**.
+
+## Success Criteria
+
+- [ ] All 5 WHY levels investigated with evidence
+- [ ] Multi-causal branches explored at each level
+- [ ] Root causes identified and validated
+- [ ] Solutions address all identified root causes
+- [ ] Backward chain validation performed
+
+## Next Wave
+
+**Handoff To**: {invoking-agent-returns-to-workflow}
+**Deliverables**: Root cause analysis report with solutions
+
+## Examples
+
+### Example 1: Investigate test flakiness
+```
+/nw-root-why "Integration tests fail intermittently on CI but pass locally"
+```
+Rex investigates 5 WHY levels with multi-causal branches, discovers race condition in database cleanup, proposes transaction-isolated test fixtures.
+
+## Expected Outputs
+
+```
+docs/analysis/root-cause-analysis-{problem}.md
+```
+
+
+ARGUMENTS: bun migrate fails on 0001_agent_session_and_subtask.surql statement 2 with "The query was not executed due to a failed transaction" - 90 pending migrations
+
+---
+
+Continue from where you left off.
+
+---
+
+marcus@Marcuss-MacBook-Pro san-francisco-v2 % dc down -v
+[+] Running 4/4
+ ✔ Container osabio-surrealdb-init         Removed               0.0s
+ ✔ Container osabio-surrealdb              Removed               0.2s
+ ✔ Volume san-francisco-v2_surrealdb-data  Removed               0.0s
+ ✔ Network san-francisco-v2_default        Removed               0.1s
+marcus@Marcuss-MacBook-Pro san-francisco-v2 % dc up -d
+[+] Running 4/4
+ ✔ Network san-francisco-v2_default        Created               0.0s
+ ✔ Volume san-francisco-v2_surrealdb-data  Created               0.0s
+ ✔ Container osabio-surrealdb              Healthy               2.7s
+ ✔ Container osabio-surrealdb-init         Started               2.8s
+marcus@Marcuss-MacBook-Pro san-francisco-v2 %
+
+it works fine. base schema is applied fine. applying migrations on top used to work fine previously. we need to debug what changed and why
+
+---
+
+Continue from where you left off.
+
+---
+
+this issue goes further back than whats on main
+
+---
+
+Base directory for this skill: /Users/marcus/.claude/skills/nw-research
+
+# NW-RESEARCH: Evidence-Driven Knowledge Research
+
+**Wave**: CROSS_WAVE
+**Agent**: Nova (nw-researcher)
+**Command**: `*research`
+
+## Overview
+
+Systematic evidence-based research with source verification. Cross-wave support providing research-backed insights for any nWave phase using trusted academic|official|industry sources.
+
+Optional `--skill-for={agent-name}` distills research into a practitioner-focused skill file for a specific agent.
+
+## Orchestration: Trusted Source Config
+
+At orchestration time, before invoking the researcher subagent:
+
+1. **Read** `.nwave/trusted-source-domains.yaml` from the project root
+2. **If file missing**, seed it from the defaults in the `## Default Trusted Sources` section below, then notify the user:
+   "Seeded `.nwave/trusted-source-domains.yaml` with defaults (7 categories, 42 trusted domains, 5 excluded). Edit the YAML directly to customize."
+3. **Embed** the YAML content inline in the researcher subagent Task prompt so the agent receives trusted source config via prompt context
+
+## Agent Invocation
+
+@nw-researcher
+
+Execute \*research on {topic} [--skill-for={agent-name}].
+
+**Configuration:**
+- research_depth: detailed # overview/detailed/comprehensive/deep-dive
+- source_preferences: ["academic", "official", "technical_docs"]
+- output_directory: docs/research/
+- skill_for: {agent-name} # Optional: distilled skill for specified agent
+- skill_output_directory: ~/.claude/nWave/skills/{agent-name}/
+
+## Output Management
+
+The researcher MUST create the output file in the FIRST 5 turns with a document skeleton (title, sections, placeholders). All subsequent findings are written DIRECTLY to this file as they are gathered -- never held only in context.
+
+If the agent is interrupted or runs out of turns, the output file contains all work done so far. This is the researcher's equivalent of the crafter's "commit early, commit often."
+
+Progressive write checkpoints:
+- Turn ~5: Output file exists with skeleton
+- Turn ~10: First findings written
+- Turn ~25: All gathered findings written so far
+- Turn ~35: Stop gathering, begin synthesizing
+- Turn ~45+: Polish only
+
+## Success Criteria
+
+**Research:**
+- [ ] All sources from trusted source domains from prompt context
+- [ ] Cross-reference performed (3+ sources per major claim ideal, 2 acceptable, 1 authoritative minimum)
+- [ ] Research file created in docs/research/
+- [ ] Citation coverage > 95%
+- [ ] Average source reputation >= 0.80
+
+**Distillation (if --skill-for specified):**
+- [ ] Skill file created in ~/.claude/nWave/skills/{agent-name}/
+- [ ] 100% essential concepts preserved
+- [ ] Self-contained with no external references
+- [ ] Token budget respected (<5000 tokens per skill)
+
+## Next Wave
+
+**Handoff To**: Invoking workflow
+**Deliverables**: Research document + optional skill file
+
+## Examples
+
+### Example 1: Standalone research
+```
+/nw-research "event sourcing patterns" --research_depth=detailed
+```
+Nova researches event sourcing from trusted sources, cross-references 3+ sources per claim, produces comprehensive research document.
+
+### Example 2: Research with agent skill
+```
+/nw-research "mutation testing methodologies" --skill-for=software-crafter
+```
+Nova researches mutation testing, distills into practitioner-focused skill file at ~/.claude/nWave/skills/software-crafter/.
+
+## Expected Outputs
+
+```
+docs/research/{category}/{topic}-comprehensive-research.md
+~/.claude/nWave/skills/{agent}/{topic}-methodology.md    (if --skill-for)
+```
+
+## Default Trusted Sources
+
+The following YAML is the default content for `.nwave/trusted-source-domains.yaml`. It is seeded automatically when the file does not exist.
+
+```yaml
+# Trusted Source Domains for Evidence-Driven Research
+# Used by knowledge-researcher agent to validate source credibility
+
+# High-reputation academic and research sources
+academic:
+  description: "Peer-reviewed academic and research institutions"
+  domains:
+    - "*.edu"
+    - "*.ac.uk"
+    - "scholar.google.com"
+    - "arxiv.org"
+    - "pubmed.ncbi.nlm.nih.gov"
+    - "researchgate.net"
+    - "ieee.org"
+    - "acm.org"
+    - "springer.com"
+    - "sciencedirect.com"
+    - "jstor.org"
+    - "nature.com"
+    - "science.org"
+  reputation: high
+  verification_requirements:
+    - peer_review_preferred
+    - citation_tracking
+    - author_credentials
+
+# Official standards bodies and government sources
+official:
+  description: "Government, standards organizations, and official documentation"
+  domains:
+    - "*.gov"
+    - "*.gov.uk"
+    - "w3.org"
+    - "ietf.org"
+    - "iso.org"
+    - "nist.gov"
+    - "docs.microsoft.com"
+    - "docs.oracle.com"
+    - "docs.python.org"
+    - "docs.oracle.com/javase"
+    - "kubernetes.io/docs"
+    - "docker.com/docs"
+  reputation: high
+  verification_requirements:
+    - official_publication
+    - version_tracking
+    - standards_compliance
+
+# Industry leaders and recognized experts
+industry_leaders:
+  description: "Established technology companies and recognized industry experts"
+  domains:
+    - "github.com"
+    - "stackoverflow.com"
+    - "martinfowler.com"
+    - "refactoring.guru"
+    - "enterpriseintegrationpatterns.com"
+    - "microservices.io"
+    - "12factor.net"
+    - "reactivemanifesto.org"
+    - "agilemanifesto.org"
+    - "thoughtworks.com/insights"
+    - "infoq.com"
+  reputation: medium-high
+  verification_requirements:
+    - cross_reference_required
+    - author_expertise_validation
+    - community_consensus
+
+# Technical documentation and established platforms
+technical_documentation:
+  description: "Official technical documentation and established platforms"
+  domains:
+    - "developer.mozilla.org"
+    - "developers.google.com"
+    - "aws.amazon.com/documentation"
+    - "cloud.google.com/docs"
+    - "learn.microsoft.com"
+    - "devdocs.io"
+    - "readthedocs.org"
+  reputation: high
+  verification_requirements:
+    - version_accuracy
+    - official_source_confirmation
+
+# Open source foundations and communities
+open_source:
+  description: "Recognized open source foundations and communities"
+  domains:
+    - "apache.org"
+    - "eclipse.org"
+    - "cncf.io"
+    - "opensource.org"
+    - "fsf.org"
+    - "linuxfoundation.org"
+  reputation: high
+  verification_requirements:
+    - community_validation
+    - project_maturity_check
+
+# Medium-trust sources requiring additional verification
+medium_trust:
+  description: "Quality sources requiring cross-referencing"
+  domains:
+    - "medium.com"
+    - "dev.to"
+    - "hashnode.com"
+  reputation: medium
+  verification_requirements:
+    - author_verification_required
+    - minimum_3_source_cross_reference
+    - fact_checking_mandatory
+
+# Excluded sources - unreliable or promotional
+excluded:
+  description: "Sources excluded due to low quality control or bias"
+  domains:
+    - "*.blogspot.com"
+    - "wordpress.com"
+    - "tumblr.com"
+    - "pastebin.com"
+    - "quora.com"
+  reason: "Unverified sources, potential bias, low quality control, no editorial oversight"
+  action: "Reject and log warning"
+
+# Source validation rules
+validation_rules:
+  minimum_sources_per_claim: 3
+  cross_reference_required: true
+
+  reputation_scoring:
+    high: 1.0
+    medium-high: 0.8
+    medium: 0.6
+    low: 0.0
+
+  confidence_thresholds:
+    high_confidence:
+      min_sources: 3
+      min_avg_reputation: 0.8
+    medium_confidence:
+      min_sources: 2
+      min_avg_reputation: 0.6
+    low_confidence:
+      min_sources: 1
+      min_avg_reputation: 0.4
+
+  required_metadata:
+    - source_url
+    - domain
+    - access_date
+    - reputation_score
+    - verification_status
+
+# Research quality guidelines
+quality_guidelines:
+  evidence_standards:
+    - "Direct quotes or data from reputable sources"
+    - "Proper attribution and citation"
+    - "Version information for technical documentation"
+    - "Publication date or last update date"
+    - "Author credentials when available"
+
+  bias_detection:
+    - "Check for commercial interests or sponsorship"
+    - "Identify potential conflicts of interest"
+    - "Verify with independent sources"
+    - "Note any disclaimers or limitations"
+
+  conflicting_information:
+    - "Document all conflicting sources"
+    - "Evaluate source reliability for each claim"
+    - "Present both sides with evidence"
+    - "Note which sources are more authoritative"
+```
+
+
+ARGUMENTS: how are we supposed to write migrations then ?
+
+---
+
+yes, fix all the migration files
+
+---
+
+add the "How to Write Migrations" section to schema/CLAUDE.md
+
+---
+
+update pr description to include these fixes
+
+---
+
+commit and push

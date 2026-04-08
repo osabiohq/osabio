@@ -1,0 +1,54 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "681b4ce227ba",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "docs/research/surrealdb-migration-idempotency.md",
+    "schema/migrations/0001_agent_session_and_subtask.surql",
+    "schema/migrations/0003_git_commit_metadata_fields.surql",
+    "schema/migrations/0005_observation_coding_agent_fields.surql",
+    "schema/migrations/0006_task_implemented_by.surql",
+    "schema/migrations/0007_task_source_session.surql",
+    "schema/migrations/0008_add_suggestion_entity.surql",
+    "schema/migrations/0012_oauth_provider_tables.surql",
+    "schema/migrations/0017_identity_hub_spoke.surql",
+    "schema/migrations/0023_trace_table.surql",
+    "schema/migrations/0024_policy_node.surql",
+    "schema/migrations/0024_spawns_relation.surql",
+    "schema/migrations/0025_policy_condition_union_type.surql",
+    "schema/migrations/0030_learning_table.surql",
+    "schema/migrations/0032_objective_table.surql",
+    "schema/migrations/0033_behavior_table.surql",
+    "schema/migrations/0035_intent_embedding.surql",
+    "schema/migrations/0037_behavior_definition.surql",
+    "schema/migrations/0038_remove_scoring_mode.surql",
+    "schema/migrations/0041_proxy_session_id.surql",
+    "schema/migrations/0042_proxy_intelligence_config.surql",
+    "schema/migrations/0043_proxy_policy_enforcement.surql",
+    "schema/migrations/0049_proxy_token.surql",
+    "schema/migrations/0060_observation_similar_to.surql",
+    "schema/migrations/0064_drop_hnsw_indexes_and_embedding_fields.surql",
+    "schema/migrations/0065_mcp_tool_registry.surql",
+    "schema/migrations/0066_mcp_server_table.surql",
+    "schema/migrations/0081_agent_runtime_name_sandbox.surql",
+    "schema/migrations/0088_replace_condition_with_rego_source.surql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/68/1b4ce227ba/0/metadata.json",
+      "transcript": "/68/1b4ce227ba/0/full.jsonl",
+      "context": "/68/1b4ce227ba/0/context.md",
+      "content_hash": "/68/1b4ce227ba/0/content_hash.txt",
+      "prompt": "/68/1b4ce227ba/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 73,
+    "cache_creation_tokens": 175563,
+    "cache_read_tokens": 3891649,
+    "output_tokens": 18841,
+    "api_call_count": 58
+  }
+}
