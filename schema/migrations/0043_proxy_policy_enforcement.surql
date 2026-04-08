@@ -14,6 +14,6 @@ DEFINE FIELD OVERWRITE policy_decision ON trace TYPE option<object> FLEXIBLE;
 COMMIT TRANSACTION;
 
 -- governed_by relation: trace -> policy (outside transaction due to DEFINE TABLE)
-DEFINE TABLE governed_by TYPE RELATION IN trace OUT policy SCHEMAFULL;
-DEFINE FIELD created_at ON governed_by TYPE datetime;
-DEFINE FIELD decision ON governed_by TYPE string ASSERT $value IN ['pass', 'deny'];
+DEFINE TABLE OVERWRITE governed_by TYPE RELATION IN trace OUT policy SCHEMAFULL;
+DEFINE FIELD OVERWRITE created_at ON governed_by TYPE datetime;
+DEFINE FIELD OVERWRITE decision ON governed_by TYPE string ASSERT $value IN ['pass', 'deny'];

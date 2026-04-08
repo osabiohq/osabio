@@ -4,22 +4,22 @@
 -- Replaces the dumb UUID string with a graph-native record link.
 
 DEFINE TABLE OVERWRITE trace SCHEMAFULL;
-DEFINE FIELD type ON trace TYPE string
+DEFINE FIELD OVERWRITE type ON trace TYPE string
   ASSERT $value IN ["tool_call", "message", "subagent_spawn", "intent_submission", "bridge_exchange"];
-DEFINE FIELD actor ON trace TYPE record<identity>;
-DEFINE FIELD workspace ON trace TYPE record<workspace>;
-DEFINE FIELD session ON trace TYPE option<record<agent_session>>;
-DEFINE FIELD parent_trace ON trace TYPE option<record<trace>>;
-DEFINE FIELD tool_name ON trace TYPE option<string>;
-DEFINE FIELD input ON trace TYPE option<object> FLEXIBLE;
-DEFINE FIELD output ON trace TYPE option<object> FLEXIBLE;
-DEFINE FIELD duration_ms ON trace TYPE option<int>;
-DEFINE FIELD created_at ON trace TYPE datetime;
+DEFINE FIELD OVERWRITE actor ON trace TYPE record<identity>;
+DEFINE FIELD OVERWRITE workspace ON trace TYPE record<workspace>;
+DEFINE FIELD OVERWRITE session ON trace TYPE option<record<agent_session>>;
+DEFINE FIELD OVERWRITE parent_trace ON trace TYPE option<record<trace>>;
+DEFINE FIELD OVERWRITE tool_name ON trace TYPE option<string>;
+DEFINE FIELD OVERWRITE input ON trace TYPE option<object> FLEXIBLE;
+DEFINE FIELD OVERWRITE output ON trace TYPE option<object> FLEXIBLE;
+DEFINE FIELD OVERWRITE duration_ms ON trace TYPE option<int>;
+DEFINE FIELD OVERWRITE created_at ON trace TYPE datetime;
 
-DEFINE INDEX trace_parent ON trace FIELDS parent_trace;
-DEFINE INDEX trace_session ON trace FIELDS session;
-DEFINE INDEX trace_workspace ON trace FIELDS workspace;
-DEFINE INDEX trace_created_at ON trace FIELDS created_at;
+DEFINE INDEX OVERWRITE trace_parent ON trace FIELDS parent_trace;
+DEFINE INDEX OVERWRITE trace_session ON trace FIELDS session;
+DEFINE INDEX OVERWRITE trace_workspace ON trace FIELDS workspace;
+DEFINE INDEX OVERWRITE trace_created_at ON trace FIELDS created_at;
 
 BEGIN TRANSACTION;
 

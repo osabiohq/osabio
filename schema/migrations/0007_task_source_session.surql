@@ -4,7 +4,7 @@
 BEGIN TRANSACTION;
 
 -- Link task to the agent session currently working on it
-DEFINE FIELD source_session ON task TYPE option<record<agent_session>>;
+DEFINE FIELD OVERWRITE source_session ON task TYPE option<record<agent_session>>;
 
 -- Formalize allowed task status values
 ALTER FIELD status ON task TYPE string
