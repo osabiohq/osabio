@@ -9,6 +9,7 @@ import { useWorkspaceState } from "../../stores/workspace-state";
 import type { PolicyStatus } from "../../hooks/use-policies";
 import { VersionDiffView } from "./VersionDiffView";
 import { RegoEditor } from "./RegoEditor";
+import { PolicyTestPanel } from "./PolicyTestPanel";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
@@ -399,6 +400,8 @@ export function PolicyDetailPage() {
           <GovernanceEdgesSection edges={data.edges} />
           <Separator />
           <VersionHistorySection versionChain={data.version_chain} currentPolicyId={data.policy.id} onCompare={handleCompareVersions} />
+          <Separator />
+          {workspaceId && <PolicyTestPanel policyId={data.policy.id} workspaceId={workspaceId} />}
 
           {isDiffLoading && <p className="text-sm text-muted-foreground">Loading diff...</p>}
           {diffPair && <VersionDiffView oldPolicy={diffPair.oldPolicy} newPolicy={diffPair.newPolicy} onClose={() => setDiffPair(undefined)} />}
