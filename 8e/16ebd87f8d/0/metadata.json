@@ -1,0 +1,53 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "8e16ebd87f8d",
+  "session_id": "a028a89a-0237-4e00-84a6-6038f6124b54",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T04:33:42.128853Z",
+  "branch": "marcus-sa/regorus-policy-eval",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "tests/acceptance/agent-learnings/learning-test-kit.ts",
+    "tests/acceptance/agent-mcp-governance.test.ts",
+    "tests/acceptance/dynamic-behaviors/authorizer-integration.test.ts",
+    "tests/acceptance/dynamic-behaviors/dynamic-behaviors-test-kit.ts",
+    "tests/acceptance/dynamic-behaviors/walking-skeleton.test.ts",
+    "tests/acceptance/graph/graph-governance-visualization.test.ts",
+    "tests/acceptance/graph/graph-relationships.test.ts",
+    "tests/acceptance/intent-evidence/milestone-3-policy-monitoring.test.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-audit.test.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-policy.test.ts",
+    "tests/acceptance/llm-proxy/llm-proxy-test-kit.ts",
+    "tests/acceptance/objective-behavior/behavior-policy.test.ts",
+    "tests/acceptance/objective-behavior/objective-behavior-test-kit.ts",
+    "tests/acceptance/policy-crud-ui/milestone-1-authorization-and-list.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-2-policy-creation.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-3-policy-lifecycle.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-4-policy-detail.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-5-version-creation.test.ts",
+    "tests/acceptance/policy-crud-ui/milestone-6-policy-trace.test.ts",
+    "tests/acceptance/policy-crud-ui/policy-crud-test-kit.ts",
+    "tests/acceptance/remove-embeddings/bm25-indexes.test.ts",
+    "tests/acceptance/skill/skill-test-kit.ts",
+    "tests/acceptance/tool-registry-ui/tool-registry-ui-test-kit.ts",
+    "tests/acceptance/tool-registry/tool-registry-test-kit.ts"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "5ae24ef9bce3",
+  "token_usage": {
+    "input_tokens": 3622,
+    "cache_creation_tokens": 159114,
+    "cache_read_tokens": 5578165,
+    "output_tokens": 19845,
+    "api_call_count": 41
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T04:33:41.504397Z",
+    "agent_lines": 369,
+    "human_added": 8,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 377,
+    "agent_percentage": 97.87798408488064
+  }
+}
