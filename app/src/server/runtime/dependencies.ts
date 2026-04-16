@@ -60,9 +60,11 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   const wrap = (model: any) => devtools ? wrapLanguageModel({ model, middleware: devtools }) : model;
 
   const { chatAgentModel, extractionModel, pmAgentModel, analyticsAgentModel, observerModel, scorerModel } =
-    config.inferenceProvider === "ollama"
-      ? createOllamaModels(config, wrap)
-      : createOpenRouterModels(config, wrap);
+    config.inferenceProvider === "claude-code"
+      ? await createClaudeCodeModels(config, wrap)
+      : config.inferenceProvider === "ollama"
+        ? createOllamaModels(config, wrap)
+        : createOpenRouterModels(config, wrap);
 
   const auth = createAuth(surreal, {
     betterAuthSecret: config.betterAuthSecret,
@@ -75,9 +77,6 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   const asSigningKey = await bootstrapSigningKeyFromSurreal(surreal);
   const mcpClientFactory = createMcpClientFactory();
 
-  // SandboxAgent SDK — start embedded server when enabled
-  // When orchestratorMockAgent is true, use mock adapter instead of real SDK
-  // (acceptance tests set both sandboxAgentEnabled + orchestratorMockAgent)
   let sandboxAgentAdapter: SandboxAgentAdapter | undefined;
   let destroySandbox: (() => Promise<void>) | undefined;
   if (config.sandboxAgentEnabled && !config.orchestratorMockAgent) {
@@ -146,4 +145,94 @@ function createOllamaModels(config: ServerConfig, wrap: (model: any) => any) {
     observerModel: wrap(ollama(config.observerModelId)),
     scorerModel: wrap(ollama(config.scorerModelId)),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Claude Code model factory (async — executes 3-layer startup probe)
+// ---------------------------------------------------------------------------
+
+type ClaudeCodeProviderFn = (modelId: string, settings?: Record<string, unknown>) => any;
+
+export async function createClaudeCodeModels(config: ServerConfig, wrap: (model: any) => any) {
+  const claudeCodeProvider = await requireClaudeCodePackage();
+  requireClaudeCodeCli();
+  await requireClaudeCodeAuthenticated();
+
+  const providerSettings = buildClaudeCodeProviderSettings(config);
+  const model = (modelId: string) => wrap(claudeCodeProvider(modelId, providerSettings));
+
+  return {
+    chatAgentModel: model(config.chatAgentModelId),
+    extractionModel: model(config.extractionModelId),
+    pmAgentModel: model(config.pmAgentModelId),
+    analyticsAgentModel: model(config.analyticsAgentModelId),
+    observerModel: model(config.observerModelId),
+    scorerModel: model(config.scorerModelId),
+  };
+}
+
+async function requireClaudeCodePackage(): Promise<ClaudeCodeProviderFn> {
+  try {
+    const mod = await import("ai-sdk-provider-claude-code");
+    if (typeof mod.claudeCode !== "function") {
+      throw new Error("claudeCode is not a function");
+    }
+    return mod.claudeCode;
+  } catch {
+    throw new Error(
+      "ai-sdk-provider-claude-code is not installed. Run: bun add ai-sdk-provider-claude-code"
+    );
+  }
+}
+
+function requireClaudeCodeCli(): void {
+  const claudeBinaryPath = Bun.which("claude");
+  if (claudeBinaryPath === null) {
+    throw new Error(
+      "Claude Code CLI is not installed. Install it with: npm install -g @anthropic-ai/claude-code"
+    );
+  }
+}
+
+async function requireClaudeCodeAuthenticated(): Promise<void> {
+  const authProcess = Bun.spawn(["claude", "auth", "status"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const authExitCode = await authProcess.exited;
+
+  let isAuthenticated = false;
+  if (authExitCode === 0) {
+    const rawOutput = await new Response(authProcess.stdout).text();
+    try {
+      const parsed = JSON.parse(rawOutput);
+      isAuthenticated = parsed.loggedIn === true;
+    } catch {
+      // Could not parse JSON — treat as unauthenticated
+    }
+  }
+
+  if (!isAuthenticated) {
+    throw new Error(
+      "Claude Code CLI is not authenticated. Authenticate with: claude login"
+    );
+  }
+}
+
+// config effort uses "normal" while provider uses "medium" for the middle tier
+const claudeCodeEffortToProviderEffort: Record<string, string> = {
+  low: "low",
+  normal: "medium",
+  high: "high",
+};
+
+function buildClaudeCodeProviderSettings(config: ServerConfig): Record<string, unknown> {
+  const settings: Record<string, unknown> = {};
+  if (config.claudeCodeEffort !== undefined) {
+    settings.effort = claudeCodeEffortToProviderEffort[config.claudeCodeEffort];
+  }
+  if (config.claudeCodeMaxBudgetUsd !== undefined) {
+    settings.maxBudgetUsd = config.claudeCodeMaxBudgetUsd;
+  }
+  return settings;
 }

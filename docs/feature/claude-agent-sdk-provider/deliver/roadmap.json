@@ -1,0 +1,126 @@
+{
+  "roadmap": {
+    "project_id": "claude-agent-sdk-provider",
+    "created_at": "2026-04-16T13:09:28Z",
+    "total_steps": 6,
+    "phases": 3
+  },
+  "phases": [
+    {
+      "id": "01",
+      "name": "Foundation — config extension and package install",
+      "steps": [
+        {
+          "id": "01-01",
+          "name": "Add ai-sdk-provider-claude-code to package.json",
+          "description": "Add the ai-sdk-provider-claude-code npm package at ^3.0.0 to the production dependencies in package.json and run bun install to lock the resolved version.",
+          "files_to_modify": [
+            "package.json"
+          ],
+          "criteria": "- package.json lists `ai-sdk-provider-claude-code: \"^3.0.0\"` under `dependencies`\n- `bun install` succeeds with no peer-dependency errors\n- `node_modules/ai-sdk-provider-claude-code` directory exists after install",
+          "estimated_hours": 0.5,
+          "dependencies": [],
+          "test_file": "",
+          "scenario_name": ""
+        },
+        {
+          "id": "01-02",
+          "name": "Extend InferenceProvider union and ServerConfig in config.ts",
+          "description": "Add `\"claude-code\"` to the `InferenceProvider` union type, add `claudeCodeEffort` and `claudeCodeMaxBudgetUsd` optional fields to `ServerConfig`, update `loadServerConfig()` to skip `OPENROUTER_API_KEY` requirement when provider is claude-code, add `claudeCodeEffort` parsing from `CLAUDE_CODE_EFFORT` env var (allowed values: `low`, `normal`, `high`), add `claudeCodeMaxBudgetUsd` parsing from `CLAUDE_CODE_MAX_BUDGET_USD` env var as a positive number, and update `parseInferenceProvider()` to include the claude-code branch with an error message listing all three valid values.",
+          "files_to_modify": [
+            "app/src/server/runtime/config.ts"
+          ],
+          "criteria": "- `InferenceProvider` type includes `\"claude-code\"` without TypeScript errors\n- `ServerConfig` has `claudeCodeEffort?: \"low\" | \"normal\" | \"high\"` and `claudeCodeMaxBudgetUsd?: number`\n- Setting `INFERENCE_PROVIDER=claude-code` without `OPENROUTER_API_KEY` does not throw\n- Setting `INFERENCE_PROVIDER=openrouter` without `OPENROUTER_API_KEY` still throws\n- `CLAUDE_CODE_EFFORT=high` parses to `\"high\"`; `CLAUDE_CODE_EFFORT=invalid` throws with a message listing `low`, `normal`, `high`\n- `CLAUDE_CODE_MAX_BUDGET_USD=5.0` parses to `5`; a non-numeric value throws\n- `parseInferenceProvider()` error message reads: `INFERENCE_PROVIDER must be one of: openrouter, ollama, claude-code`",
+          "estimated_hours": 1.5,
+          "dependencies": ["01-01"],
+          "test_file": "",
+          "scenario_name": ""
+        }
+      ]
+    },
+    {
+      "id": "02",
+      "name": "Implementation — factory with three-layer probe and dispatch update",
+      "steps": [
+        {
+          "id": "02-01",
+          "name": "Implement createClaudeCodeModels factory with 3-layer startup probe",
+          "description": "Add an async `createClaudeCodeModels(config: ServerConfig, wrap: (model: any) => any)` factory in dependencies.ts using a dynamic import of `ai-sdk-provider-claude-code`. The factory must execute three sequential probe layers before constructing any model object: Layer 1 (package import) — dynamic import succeeds or throws with install instructions; Layer 2 (CLI presence) — verify the `claude` binary is available on PATH or throw with the install command; Layer 3 (auth state) — verify the CLI reports an authenticated session or throw with the login command. On probe success, construct and return the six model objects (`chatAgentModel`, `extractionModel`, `pmAgentModel`, `analyticsAgentModel`, `observerModel`, `scorerModel`). The factory passes model IDs from ServerConfig to the provider for instantiation, respecting the provider API contract. Options `claudeCodeEffort` and `claudeCodeMaxBudgetUsd` are forwarded to provider options where supported. Any probe failure must propagate as a thrown error so `createRuntimeDependencies` causes the server to refuse startup.",
+          "files_to_modify": [
+            "app/src/server/runtime/dependencies.ts"
+          ],
+          "criteria": "- Factory is `async` and uses dynamic import for `ai-sdk-provider-claude-code` (no static import at module top)\n- Layer 1 probe: missing package throws an error containing the install command `bun add ai-sdk-provider-claude-code`\n- Layer 2 probe: missing `claude` CLI binary throws an error containing `npm install -g @anthropic-ai/claude-code`\n- Layer 3 probe: unauthenticated CLI state throws an error containing `claude login`\n- Successful probe returns an object with exactly 6 defined model properties: `chatAgentModel`, `extractionModel`, `pmAgentModel`, `analyticsAgentModel`, `observerModel`, `scorerModel`\n- `claudeCodeEffort` is forwarded to provider options when present in config\n- `claudeCodeMaxBudgetUsd` is forwarded to provider options when present in config\n- No module-level mutable state introduced (functional factory pattern)",
+          "estimated_hours": 3.0,
+          "dependencies": ["01-02"],
+          "test_file": "",
+          "scenario_name": ""
+        },
+        {
+          "id": "02-02",
+          "name": "Update three-way dispatch in createRuntimeDependencies",
+          "description": "Replace the existing two-way `ollama` vs `openrouter` dispatch in `createRuntimeDependencies` with a three-way dispatch that routes `claude-code` to `createClaudeCodeModels`, `ollama` to `createOllamaModels`, and defaults to `createOpenRouterModels`. The provider dispatch handles the async claude-code factory correctly, ensuring factory completion before returning model objects.",
+          "files_to_modify": [
+            "app/src/server/runtime/dependencies.ts"
+          ],
+          "criteria": "- When `config.inferenceProvider === \"claude-code\"`, the factory branch is awaited and its 6 model objects are destructured correctly\n- When `config.inferenceProvider === \"ollama\"`, behavior is unchanged from before this change\n- When `config.inferenceProvider === \"openrouter\"` (or undefined), behavior is unchanged from before this change\n- TypeScript compiles cleanly with no `any`-escape regressions beyond those already present\n- The dispatch expression does not introduce module-level mutable state",
+          "estimated_hours": 0.5,
+          "dependencies": ["02-01"],
+          "test_file": "",
+          "scenario_name": ""
+        }
+      ]
+    },
+    {
+      "id": "03",
+      "name": "Verification — smoke test and README",
+      "steps": [
+        {
+          "id": "03-01",
+          "name": "Add claude-code smoke test suite",
+          "description": "Create `tests/acceptance/claude-code-smoke.test.ts` that boots the server with `configOverrides: { inferenceProvider: \"claude-code\" }` (via the existing `AcceptanceSuiteOptions` pattern) and asserts two behaviours: (1) `streamText()` with a minimal prompt returns at least one text delta and the stream completes without error; (2) `generateObject()` with the extraction schema returns an object that validates against the schema. The smoke test implements conditional skip behavior when INFERENCE_PROVIDER is not claude-code, ensuring the suite passes (not fails) in CI environments without Claude Code credentials.",
+          "files_to_modify": [
+            "tests/acceptance/claude-code-smoke.test.ts"
+          ],
+          "criteria": "- Test file exists at `tests/acceptance/claude-code-smoke.test.ts`\n- When `INFERENCE_PROVIDER=claude-code` is set and CLI is authenticated, `bun test tests/acceptance/claude-code-smoke.test.ts` passes\n- When `INFERENCE_PROVIDER` is unset or set to another value, all tests in the suite are skipped (exit 0, no failures)\n- `streamText()` test asserts at least one `text-delta` event is received and the stream closes cleanly\n- `generateObject()` test asserts the returned object satisfies the extraction result Zod schema\n- Test uses `crypto.randomUUID()` for any identifiers to prevent collision in concurrent runs\n- No `process.env` mutations inside the test file (uses `configOverrides` pattern from acceptance-test-kit)",
+          "estimated_hours": 2.0,
+          "dependencies": ["02-02"],
+          "test_file": "tests/acceptance/claude-code-smoke.test.ts",
+          "scenario_name": "claude-code provider smoke"
+        },
+        {
+          "id": "03-02",
+          "name": "Document claude-code provider in README.md",
+          "description": "Add a `claude-code` provider subsection under the existing inference configuration section in README.md. The subsection must document: required env var (`INFERENCE_PROVIDER=claude-code`), optional env vars (`CLAUDE_CODE_EFFORT`, `CLAUDE_CODE_MAX_BUDGET_USD`), one-time install step (`npm install -g @anthropic-ai/claude-code`), authentication step (`claude login`), the non-headless constraint (requires an interactive desktop session; not suitable for headless CI without a pre-authenticated credential store), and the model ID env vars that still apply (`CHAT_AGENT_MODEL`, `EXTRACTION_MODEL`, etc.).",
+          "files_to_modify": [
+            "README.md"
+          ],
+          "criteria": "- README contains a `### claude-code` subsection under inference configuration\n- Subsection lists `INFERENCE_PROVIDER=claude-code` as the activation env var\n- Subsection documents `CLAUDE_CODE_EFFORT` with allowed values `low`, `normal`, `high`\n- Subsection documents `CLAUDE_CODE_MAX_BUDGET_USD` as an optional spend cap\n- Subsection includes the CLI install command `npm install -g @anthropic-ai/claude-code`\n- Subsection includes the auth command `claude login`\n- Subsection explicitly states the non-headless constraint in plain language\n- All model ID env vars (`CHAT_AGENT_MODEL`, `EXTRACTION_MODEL`, `ANALYTICS_MODEL`, `PM_AGENT_MODEL`, `OBSERVER_MODEL`, `SCORER_MODEL`) are noted as still required",
+          "estimated_hours": 0.5,
+          "dependencies": ["03-01"],
+          "test_file": "",
+          "scenario_name": ""
+        }
+      ]
+    }
+  ],
+  "implementation_scope": {
+    "source_directories": [
+      "app/src/server/runtime/",
+      "tests/acceptance/"
+    ],
+    "test_directories": [
+      "tests/acceptance/"
+    ],
+    "excluded_patterns": [
+      "node_modules/**",
+      "*.js",
+      "*.d.ts"
+    ]
+  },
+  "validation": {
+    "status": "approved",
+    "reviewer": "solution-architect-reviewer",
+    "approved_at": "2026-04-16T13:20:00Z",
+    "review_notes": "Approved after one revision cycle. All blocking issues (implementation code in descriptions) resolved. Architecture is sound: external validity confirmed, decomposition ratio 2.5, test boundaries correct, all DESIGN test surface scenarios covered."
+  }
+}

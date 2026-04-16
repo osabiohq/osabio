@@ -7,7 +7,12 @@ export type OpenRouterReasoningOptions = {
   effort?: OpenRouterReasoningEffort;
 };
 
-export type InferenceProvider = "openrouter" | "ollama";
+export type InferenceProvider = "openrouter" | "ollama" | "claude-code";
+
+export type ClaudeCodeEffort = "low" | "normal" | "high";
+
+const OPENROUTER_REASONING_EFFORTS: OpenRouterReasoningEffort[] = ["xhigh", "high", "medium", "low", "minimal", "none"];
+const CLAUDE_CODE_EFFORTS: ClaudeCodeEffort[] = ["low", "normal", "high"];
 
 export type ServerConfig = {
   inferenceProvider: InferenceProvider;
@@ -45,6 +50,8 @@ export type ServerConfig = {
   internalWebhookSecret?: string;
   toolEncryptionKey?: string;
   baseUrl: string;
+  claudeCodeEffort?: ClaudeCodeEffort;
+  claudeCodeMaxBudgetUsd?: number;
 };
 
 export function loadServerConfig(): ServerConfig {
@@ -95,6 +102,14 @@ export function loadServerConfig(): ServerConfig {
 
   const openRouterReasoning = inferenceProvider === "openrouter"
     ? parseOpenRouterReasoning()
+    : undefined;
+
+  const claudeCodeEffort = inferenceProvider === "claude-code"
+    ? parseClaudeCodeEffort()
+    : undefined;
+
+  const claudeCodeMaxBudgetUsd = inferenceProvider === "claude-code"
+    ? parseClaudeCodeMaxBudgetUsd()
     : undefined;
 
   const selfHosted = parseBooleanEnv("SELF_HOSTED");
@@ -149,6 +164,8 @@ export function loadServerConfig(): ServerConfig {
     ...(internalWebhookSecret ? { internalWebhookSecret } : {}),
     ...(toolEncryptionKey ? { toolEncryptionKey } : {}),
     baseUrl,
+    ...(claudeCodeEffort ? { claudeCodeEffort } : {}),
+    ...(claudeCodeMaxBudgetUsd !== undefined ? { claudeCodeMaxBudgetUsd } : {}),
   };
 }
 
@@ -188,7 +205,8 @@ function parseInferenceProvider(): InferenceProvider {
   const value = Bun.env.INFERENCE_PROVIDER?.trim().toLowerCase();
   if (!value || value === "openrouter") return "openrouter";
   if (value === "ollama") return "ollama";
-  throw new Error("INFERENCE_PROVIDER must be one of: openrouter, ollama");
+  if (value === "claude-code") return "claude-code";
+  throw new Error("INFERENCE_PROVIDER must be one of: openrouter, ollama, claude-code");
 }
 
 function parseBooleanEnv(name: string): boolean {
@@ -215,9 +233,7 @@ function parseOpenRouterReasoning(): OpenRouterReasoningOptions | undefined {
   const reasoning: OpenRouterReasoningOptions = {};
 
   if (effortValue) {
-    const allowedEfforts: OpenRouterReasoningEffort[] = ["xhigh", "high", "medium", "low", "minimal", "none"];
-
-    if (!allowedEfforts.includes(effortValue as OpenRouterReasoningEffort)) {
+    if (!OPENROUTER_REASONING_EFFORTS.includes(effortValue as OpenRouterReasoningEffort)) {
       throw new Error("OPENROUTER_REASONING_EFFORT must be one of xhigh, high, medium, low, minimal, none");
     }
     reasoning.effort = effortValue as OpenRouterReasoningEffort;
@@ -232,4 +248,25 @@ function parseOpenRouterReasoning(): OpenRouterReasoningOptions | undefined {
   }
 
   return reasoning;
+}
+
+function parseClaudeCodeEffort(): ClaudeCodeEffort | undefined {
+  const value = Bun.env.CLAUDE_CODE_EFFORT?.trim();
+  if (!value) return undefined;
+
+  if (!CLAUDE_CODE_EFFORTS.includes(value as ClaudeCodeEffort)) {
+    throw new Error(`CLAUDE_CODE_EFFORT must be one of: low, normal, high`);
+  }
+  return value as ClaudeCodeEffort;
+}
+
+function parseClaudeCodeMaxBudgetUsd(): number | undefined {
+  const value = Bun.env.CLAUDE_CODE_MAX_BUDGET_USD?.trim();
+  if (!value) return undefined;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("CLAUDE_CODE_MAX_BUDGET_USD must be a positive number");
+  }
+  return parsed;
 }

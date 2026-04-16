@@ -1,0 +1,285 @@
+schema_version: 1
+
+journey:
+  name: "Claude Code Provider Setup"
+  goal: "Get Osabio agents running through an existing Claude subscription — no extra API keys"
+  persona: "Priya Kapoor — developer deploying Osabio, Claude Pro subscriber, Claude Code installed"
+
+  emotional_arc:
+    start: "Anxious — discovers Osabio requires an inference provider and wonders if another API key is needed"
+    middle: "Focused and methodical — following clear config steps, familiar .env pattern"
+    end: "Confident — agents respond through Claude Code, zero new accounts created"
+
+steps:
+  - id: 1
+    name: "Install Package Dependency"
+    command: "bun add ai-sdk-provider-claude-code"
+
+    tui_mockup: |
+      +-- Terminal: Install Dependency --------------------------------+
+      | $ bun add ai-sdk-provider-claude-code                         |
+      |                                                                |
+      | bun add v1.x                                                   |
+      | installed ai-sdk-provider-claude-code@${PROVIDER_VERSION}     |
+      | installed @anthropic/claude-agent-sdk@${SDK_VERSION}          |
+      +----------------------------------------------------------------+
+
+    shared_artifacts:
+      - name: "provider_package_version"
+        source: "package.json (ai-sdk-provider-claude-code)"
+        displayed_as: "${PROVIDER_VERSION}"
+        consumers:
+          - "package.json"
+          - "README prerequisites section"
+          - "smoke test import"
+
+    emotional_state:
+      entry: "Anxious — will this require a new account?"
+      exit: "Focused — package installs cleanly, familiar Bun workflow"
+
+    integration_checkpoint: |
+      Package must be importable: `import { claudeCode } from 'ai-sdk-provider-claude-code'`
+      Peer dependency @anthropic/claude-agent-sdk must install alongside it.
+
+    failure_modes:
+      - "Package not found in registry (wrong package name)"
+      - "Peer dependency version conflict with AI SDK v6"
+      - "Network timeout during install"
+
+    gherkin: |
+      Scenario: Package installs without conflict
+        Given Priya has an Osabio project with Bun and AI SDK v6
+        When she runs bun add ai-sdk-provider-claude-code
+        Then the package installs successfully at version 3.x or higher
+        And @anthropic/claude-agent-sdk is installed as a peer dependency
+        And shared artifact "provider_package_version" is recorded in package.json
+
+  - id: 2
+    name: "Configure Environment Variables"
+    command: "Set INFERENCE_PROVIDER=claude-code in .env"
+
+    tui_mockup: |
+      +-- .env Configuration ------------------------------------------+
+      | INFERENCE_PROVIDER=claude-code                                  |
+      |                                                                  |
+      | CHAT_AGENT_MODEL=${CHAT_MODEL_ID}                               |
+      | EXTRACTION_MODEL=${EXTRACTION_MODEL_ID}                         |
+      | PM_AGENT_MODEL=${PM_MODEL_ID}                                   |
+      | ANALYTICS_MODEL=${ANALYTICS_MODEL_ID}                           |
+      | OBSERVER_MODEL=${OBSERVER_MODEL_ID}                             |
+      | SCORER_MODEL=${SCORER_MODEL_ID}                                 |
+      |                                                                  |
+      | # Optional                                                       |
+      | CLAUDE_CODE_EFFORT=${EFFORT_LEVEL}         # low|normal|high    |
+      | CLAUDE_CODE_MAX_BUDGET_USD=${BUDGET_USD}   # optional           |
+      +------------------------------------------------------------------+
+
+    shared_artifacts:
+      - name: "inference_provider_value"
+        source: "INFERENCE_PROVIDER env var → config.ts InferenceProvider type"
+        displayed_as: "${INFERENCE_PROVIDER}"
+        consumers:
+          - "config.ts parseInferenceProvider()"
+          - "dependencies.ts dispatch condition"
+          - "server startup log"
+
+      - name: "chat_model_id"
+        source: "CHAT_AGENT_MODEL env var"
+        displayed_as: "${CHAT_MODEL_ID}"
+        consumers:
+          - "config.ts chatAgentModelId"
+          - "createClaudeCodeModels() factory"
+          - "server startup log"
+
+      - name: "claude_code_effort"
+        source: "CLAUDE_CODE_EFFORT env var (optional)"
+        displayed_as: "${EFFORT_LEVEL}"
+        consumers:
+          - "config.ts claudeCodeEffort (optional field)"
+          - "createClaudeCodeModels() factory options"
+
+      - name: "claude_code_budget"
+        source: "CLAUDE_CODE_MAX_BUDGET_USD env var (optional)"
+        displayed_as: "${BUDGET_USD}"
+        consumers:
+          - "config.ts claudeCodeMaxBudgetUsd (optional field)"
+          - "createClaudeCodeModels() factory options"
+
+    emotional_state:
+      entry: "Focused — clear which env vars to set"
+      exit: "Methodical — familiar .env pattern, minimal new variables vs OpenRouter"
+
+    integration_checkpoint: |
+      config.ts must NOT require OPENROUTER_API_KEY when inferenceProvider === 'claude-code'.
+      Model ID env vars (CHAT_AGENT_MODEL etc.) are already required and unchanged.
+      New optional vars CLAUDE_CODE_EFFORT and CLAUDE_CODE_MAX_BUDGET_USD must be parsed safely.
+
+    failure_modes:
+      - "INFERENCE_PROVIDER typo (e.g. 'claudecode' without hyphen) → parse error at startup"
+      - "OPENROUTER_API_KEY still required despite not being openrouter provider → startup crash"
+      - "CLAUDE_CODE_MAX_BUDGET_USD set to non-numeric value → parse error"
+
+    gherkin: |
+      Scenario: Server config loads without OpenRouter key when using claude-code
+        Given INFERENCE_PROVIDER is set to "claude-code" in the environment
+        And OPENROUTER_API_KEY is not set
+        When loadServerConfig() is called
+        Then configuration loads without error
+        And inferenceProvider equals "claude-code"
+        And openRouterApiKey is undefined
+
+      Scenario: Optional effort and budget config parsed safely
+        Given CLAUDE_CODE_EFFORT is set to "high"
+        And CLAUDE_CODE_MAX_BUDGET_USD is set to "2.50"
+        When loadServerConfig() is called
+        Then claudeCodeEffort equals "high"
+        And claudeCodeMaxBudgetUsd equals 2.50
+
+      Scenario: Invalid INFERENCE_PROVIDER value rejected at startup
+        Given INFERENCE_PROVIDER is set to "cloudecode" (typo)
+        When loadServerConfig() is called
+        Then an error is thrown stating valid values are openrouter, ollama, claude-code
+
+  - id: 3
+    name: "Server Startup with Provider Validation"
+    command: "bun run dev"
+
+    tui_mockup: |
+      +-- Terminal: Successful Startup --------------------------------+
+      | $ bun run dev                                                   |
+      |                                                                  |
+      | [runtime] Inference provider: ${INFERENCE_PROVIDER}            |
+      | [runtime] Claude Code: authenticated ✓                          |
+      | [runtime] Models: ${CHAT_MODEL_ID} (chat),                     |
+      |           ${EXTRACTION_MODEL_ID} (extraction, pm, analytics,   |
+      |           observer, scorer)                                      |
+      | [runtime] Listening on http://localhost:${PORT}                 |
+      +------------------------------------------------------------------+
+
+      +-- Terminal: Error — Claude Code CLI missing --------------------+
+      | Error: Claude Code CLI not found.                               |
+      |                                                                  |
+      | The claude-code inference provider requires Claude Code         |
+      | to be installed and authenticated.                               |
+      |                                                                  |
+      | Install:   npm install -g @anthropic-ai/claude-code             |
+      | Authenticate: claude login                                       |
+      |                                                                  |
+      | After completing setup, restart: bun run dev                    |
+      +------------------------------------------------------------------+
+
+    shared_artifacts:
+      - name: "startup_provider_confirmation"
+        source: "Runtime log line from createRuntimeDependencies()"
+        displayed_as: "[runtime] Inference provider: ${INFERENCE_PROVIDER}"
+        consumers:
+          - "Developer reading terminal output"
+          - "smoke test assertion (provider name in log)"
+
+    emotional_state:
+      entry: "Hopeful — will the server start cleanly?"
+      exit: "Confident (happy path) / Guided (error path — clear recovery steps)"
+
+    integration_checkpoint: |
+      Provider factory must detect and surface missing/unauthenticated Claude Code CLI
+      before binding to any port. Error must include specific remediation commands.
+      Startup log must confirm provider identity and model IDs.
+
+    failure_modes:
+      - "Claude Code CLI not installed → named error with install command"
+      - "Claude Code not authenticated → named error with 'claude login' instruction"
+      - "CLAUDE_CODE_MAX_BUDGET_USD exceeded from a prior session → error on first inference call, not startup"
+
+    gherkin: |
+      Scenario: Server starts and confirms claude-code provider
+        Given INFERENCE_PROVIDER=claude-code and Claude Code is installed and authenticated
+        When Priya starts the server with bun run dev
+        Then the server logs "[runtime] Inference provider: claude-code"
+        And the server logs the configured model IDs
+        And the server begins accepting requests on the configured port
+
+      Scenario: Developer sees actionable error when Claude Code is absent
+        Given INFERENCE_PROVIDER=claude-code and Claude Code CLI is not installed
+        When Priya starts the server
+        Then startup fails with a human-readable error message
+        And the error message includes the install command for Claude Code
+        And the error message includes the authentication command
+
+      Scenario: Developer sees actionable error when Claude Code is not authenticated
+        Given INFERENCE_PROVIDER=claude-code and Claude Code is installed but not authenticated
+        When Priya starts the server
+        Then startup fails with a human-readable error message
+        And the error message includes the "claude login" command
+
+  - id: 4
+    name: "Validate Agent Inference Works"
+    command: "curl or browser — send first chat message"
+
+    tui_mockup: |
+      +-- Browser / API: First Agent Interaction ----------------------+
+      | POST /api/chat/messages                                         |
+      | { "message": "List open tasks in the supply chain project" }   |
+      |                                                                  |
+      | ← SSE stream begins within 2 seconds                           |
+      | ← Chat agent streams response via Claude Code ✓                |
+      | ← PM agent invoked, returns structured output ✓                |
+      | ← Extraction pipeline completes ✓                              |
+      |                                                                  |
+      | [Priya: Confident — identical experience to OpenRouter]        |
+      +------------------------------------------------------------------+
+
+    shared_artifacts:
+      - name: "stream_response_shape"
+        source: "Vercel AI SDK streamText() output contract"
+        displayed_as: "SSE events matching existing chat stream format"
+        consumers:
+          - "chat/handler.ts runChatAgent()"
+          - "Frontend chat UI"
+          - "smoke test assertions"
+
+    emotional_state:
+      entry: "Expectant — will the response quality and format be identical?"
+      exit: "Confident — agents work through Claude Code, no behavioral difference"
+
+    integration_checkpoint: |
+      streamText() and generateObject() must produce identical response shapes
+      regardless of whether the underlying provider is OpenRouter, Ollama, or claude-code.
+      The provider is transparent to all consumers above dependencies.ts.
+
+    failure_modes:
+      - "Provider does not implement generateObject() → extraction pipeline fails"
+      - "Token streaming format differs → frontend chat UI breaks"
+      - "Tool call format incompatible → PM agent / observer fail silently"
+
+    gherkin: |
+      Scenario: Chat agent streams response through claude-code provider
+        Given INFERENCE_PROVIDER=claude-code and all agents are configured
+        When Priya sends a chat message asking about supply chain disruptions
+        Then the server streams a response within 5 seconds
+        And the response format matches the existing AI SDK stream contract
+        And the chat message is persisted to the graph
+
+      Scenario: generateObject produces valid structured output via claude-code
+        Given the extraction pipeline uses the claude-code extraction model
+        When a chat message containing entity references is processed
+        Then the extraction pipeline produces a valid structured extraction result
+        And entities are persisted to the graph as expected
+
+integration_validation:
+  shared_artifact_consistency:
+    - artifact: "inference_provider_value"
+      must_match_across: [2, 3]
+      failure_message: "INFERENCE_PROVIDER set in .env must equal inferenceProvider in loaded ServerConfig and logged at startup"
+
+    - artifact: "chat_model_id"
+      must_match_across: [2, 3, 4]
+      failure_message: "CHAT_AGENT_MODEL set in .env must be passed to the provider factory and logged at startup"
+
+    - artifact: "stream_response_shape"
+      must_match_across: [4]
+      failure_message: "claude-code provider output must be structurally identical to OpenRouter/Ollama output — no special casing in consumers"
+
+changelog:
+  - date: "2026-04-16"
+    feature: "claude-agent-sdk-provider"
+    change: "Initial journey schema created during DISCUSS wave"
