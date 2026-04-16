@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "a2522065bdbd",
+  "session_id": "a0d39662-0f18-4917-9f95-c5438a5edb23",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-16T13:46:50.623053Z",
+  "branch": "marcus-sa/claude-agent-sdk-provider",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/evolution/2026-04-16-claude-agent-sdk-provider.md",
+    "docs/feature/claude-agent-sdk-provider/deliver/roadmap.json",
+    "docs/ux/claude-agent-sdk-provider/journey-claude-provider-setup-visual.md",
+    "docs/ux/claude-agent-sdk-provider/journey-claude-provider-setup.yaml"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "f292d52ff129",
+  "token_usage": {
+    "input_tokens": 149,
+    "cache_creation_tokens": 113021,
+    "cache_read_tokens": 6434245,
+    "output_tokens": 29508,
+    "api_call_count": 78
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-16T13:46:50.322032Z",
+    "agent_lines": 727,
+    "human_added": 1041,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1768,
+    "agent_percentage": 41.119909502262445
+  }
+}
