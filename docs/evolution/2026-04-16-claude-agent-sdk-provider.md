@@ -109,8 +109,9 @@ Each probe layer catches a distinct failure mode, and each produces a different 
 |----------|------------|
 | `discuss/journey-claude-provider-setup.yaml` | `docs/ux/claude-agent-sdk-provider/` |
 | `discuss/journey-claude-provider-setup-visual.md` | `docs/ux/claude-agent-sdk-provider/` |
+| `docs/product/architecture/adr-claude-provider.md` | `docs/adrs/ADR-089-claude-code-provider.md` |
 
-No `design/architecture-design.md`, `design/component-boundaries.md`, `design/data-models.md`, or `design/technology-stack.md` were produced (design was embedded in `wave-decisions.md` and applied inline). The DESIGN wave produced an ADR referenced as `docs/product/architecture/adr-claude-provider.md` — pre-existing permanent location, no migration needed.
+No `design/architecture-design.md`, `design/component-boundaries.md`, `design/data-models.md`, or `design/technology-stack.md` were produced (design was embedded in `wave-decisions.md` and applied inline). The DESIGN wave produced an ADR now located at `docs/adrs/ADR-089-claude-code-provider.md` (migrated from `docs/product/architecture/adr-claude-provider.md` during finalize).
 
 ---
 
