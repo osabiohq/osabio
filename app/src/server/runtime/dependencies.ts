@@ -60,9 +60,11 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   const wrap = (model: any) => devtools ? wrapLanguageModel({ model, middleware: devtools }) : model;
 
   const { chatAgentModel, extractionModel, pmAgentModel, analyticsAgentModel, observerModel, scorerModel } =
-    config.inferenceProvider === "ollama"
-      ? createOllamaModels(config, wrap)
-      : createOpenRouterModels(config, wrap);
+    config.inferenceProvider === "claude-code"
+      ? await createClaudeCodeModels(config, wrap)
+      : config.inferenceProvider === "ollama"
+        ? createOllamaModels(config, wrap)
+        : createOpenRouterModels(config, wrap);
 
   const auth = createAuth(surreal, {
     betterAuthSecret: config.betterAuthSecret,
