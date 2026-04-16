@@ -147,3 +147,83 @@ function createOllamaModels(config: ServerConfig, wrap: (model: any) => any) {
     scorerModel: wrap(ollama(config.scorerModelId)),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Claude Code model factory (async — executes 3-layer startup probe)
+// ---------------------------------------------------------------------------
+
+export async function createClaudeCodeModels(config: ServerConfig, wrap: (model: any) => any) {
+  // Layer 1: package import probe
+  let claudeCodeProvider: (modelId: string, settings?: Record<string, unknown>) => any;
+  try {
+    const mod = await import("ai-sdk-provider-claude-code");
+    if (typeof mod.claudeCode !== "function") {
+      throw new Error("claudeCode is not a function");
+    }
+    claudeCodeProvider = mod.claudeCode;
+  } catch {
+    throw new Error(
+      "ai-sdk-provider-claude-code is not installed. Run: bun add ai-sdk-provider-claude-code"
+    );
+  }
+
+  // Layer 2: CLI presence probe
+  const claudeBinaryPath = Bun.which("claude");
+  if (claudeBinaryPath === null) {
+    throw new Error(
+      "Claude Code CLI is not installed. Install it with: npm install -g @anthropic-ai/claude-code"
+    );
+  }
+
+  // Layer 3: auth state probe
+  const authProcess = Bun.spawn(["claude", "auth", "status"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const authExitCode = await authProcess.exited;
+
+  let isAuthenticated = false;
+  if (authExitCode === 0) {
+    const rawOutput = await new Response(authProcess.stdout).text();
+    try {
+      const parsed = JSON.parse(rawOutput);
+      isAuthenticated = parsed.loggedIn === true;
+    } catch {
+      // Could not parse JSON — treat as unauthenticated
+    }
+  }
+
+  if (!isAuthenticated) {
+    throw new Error(
+      "Claude Code CLI is not authenticated. Authenticate with: claude login"
+    );
+  }
+
+  // Build provider options from config
+  const providerSettings: Record<string, unknown> = {};
+  if (config.claudeCodeEffort !== undefined) {
+    // Map config effort values to provider effort values
+    // config: "low" | "normal" | "high"
+    // provider: "low" | "medium" | "high" | "max"
+    const effortMap: Record<string, string> = {
+      low: "low",
+      normal: "medium",
+      high: "high",
+    };
+    providerSettings.effort = effortMap[config.claudeCodeEffort];
+  }
+  if (config.claudeCodeMaxBudgetUsd !== undefined) {
+    providerSettings.maxBudgetUsd = config.claudeCodeMaxBudgetUsd;
+  }
+
+  const model = (modelId: string) => wrap(claudeCodeProvider(modelId, providerSettings));
+
+  return {
+    chatAgentModel: model(config.chatAgentModelId),
+    extractionModel: model(config.extractionModelId),
+    pmAgentModel: model(config.pmAgentModelId),
+    analyticsAgentModel: model(config.analyticsAgentModelId),
+    observerModel: model(config.observerModelId),
+    scorerModel: model(config.scorerModelId),
+  };
+}
