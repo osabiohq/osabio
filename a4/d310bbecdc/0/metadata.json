@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "a4d310bbecdc",
+  "session_id": "f947b4ee-5bef-4551-9a74-e15f2a5cbc57",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-16T13:05:27.980348Z",
+  "branch": "marcus-sa/claude-agent-sdk-provider",
+  "checkpoints_count": 4,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "docs/feature/claude-agent-sdk-provider/design/wave-decisions.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/dor-validation.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/handoff-design.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/journey-claude-provider-setup-visual.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/journey-claude-provider-setup.yaml",
+    "docs/feature/claude-agent-sdk-provider/discuss/outcome-kpis.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/peer-review.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/shared-artifacts-registry.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/story-map.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/user-stories.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/wave-decisions.md",
+    "docs/product/architecture/adr-claude-provider.md",
+    "docs/product/architecture/brief.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "97e9861ada99",
+  "token_usage": {
+    "input_tokens": 45,
+    "cache_creation_tokens": 124869,
+    "cache_read_tokens": 1911049,
+    "output_tokens": 11409,
+    "api_call_count": 32
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-16T13:05:27.811334Z",
+    "agent_lines": 1958,
+    "human_added": 0,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 1959,
+    "agent_percentage": 99.94895354772844
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.4.8",
+  "checkpoint_id": "a4d310bbecdc",
+  "strategy": "manual-commit",
+  "branch": "marcus-sa/claude-agent-sdk-provider",
+  "checkpoints_count": 4,
+  "files_touched": [
+    ".nwave/des-config.json",
+    "docs/feature/claude-agent-sdk-provider/design/wave-decisions.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/dor-validation.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/handoff-design.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/journey-claude-provider-setup-visual.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/journey-claude-provider-setup.yaml",
+    "docs/feature/claude-agent-sdk-provider/discuss/outcome-kpis.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/peer-review.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/shared-artifacts-registry.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/story-map.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/user-stories.md",
+    "docs/feature/claude-agent-sdk-provider/discuss/wave-decisions.md",
+    "docs/product/architecture/adr-claude-provider.md",
+    "docs/product/architecture/brief.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a4/d310bbecdc/0/metadata.json",
+      "transcript": "/a4/d310bbecdc/0/full.jsonl",
+      "context": "/a4/d310bbecdc/0/context.md",
+      "content_hash": "/a4/d310bbecdc/0/content_hash.txt",
+      "prompt": "/a4/d310bbecdc/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 45,
+    "cache_creation_tokens": 124869,
+    "cache_read_tokens": 1911049,
+    "output_tokens": 11409,
+    "api_call_count": 32
+  }
+}
