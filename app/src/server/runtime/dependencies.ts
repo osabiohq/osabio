@@ -77,9 +77,6 @@ export async function createRuntimeDependencies(config: ServerConfig): Promise<{
   const asSigningKey = await bootstrapSigningKeyFromSurreal(surreal);
   const mcpClientFactory = createMcpClientFactory();
 
-  // SandboxAgent SDK — start embedded server when enabled
-  // When orchestratorMockAgent is true, use mock adapter instead of real SDK
-  // (acceptance tests set both sandboxAgentEnabled + orchestratorMockAgent)
   let sandboxAgentAdapter: SandboxAgentAdapter | undefined;
   let destroySandbox: (() => Promise<void>) | undefined;
   if (config.sandboxAgentEnabled && !config.orchestratorMockAgent) {
@@ -154,30 +151,50 @@ function createOllamaModels(config: ServerConfig, wrap: (model: any) => any) {
 // Claude Code model factory (async — executes 3-layer startup probe)
 // ---------------------------------------------------------------------------
 
+type ClaudeCodeProviderFn = (modelId: string, settings?: Record<string, unknown>) => any;
+
 export async function createClaudeCodeModels(config: ServerConfig, wrap: (model: any) => any) {
-  // Layer 1: package import probe
-  let claudeCodeProvider: (modelId: string, settings?: Record<string, unknown>) => any;
+  const claudeCodeProvider = await requireClaudeCodePackage();
+  requireClaudeCodeCli();
+  await requireClaudeCodeAuthenticated();
+
+  const providerSettings = buildClaudeCodeProviderSettings(config);
+  const model = (modelId: string) => wrap(claudeCodeProvider(modelId, providerSettings));
+
+  return {
+    chatAgentModel: model(config.chatAgentModelId),
+    extractionModel: model(config.extractionModelId),
+    pmAgentModel: model(config.pmAgentModelId),
+    analyticsAgentModel: model(config.analyticsAgentModelId),
+    observerModel: model(config.observerModelId),
+    scorerModel: model(config.scorerModelId),
+  };
+}
+
+async function requireClaudeCodePackage(): Promise<ClaudeCodeProviderFn> {
   try {
     const mod = await import("ai-sdk-provider-claude-code");
     if (typeof mod.claudeCode !== "function") {
       throw new Error("claudeCode is not a function");
     }
-    claudeCodeProvider = mod.claudeCode;
+    return mod.claudeCode;
   } catch {
     throw new Error(
       "ai-sdk-provider-claude-code is not installed. Run: bun add ai-sdk-provider-claude-code"
     );
   }
+}
 
-  // Layer 2: CLI presence probe
+function requireClaudeCodeCli(): void {
   const claudeBinaryPath = Bun.which("claude");
   if (claudeBinaryPath === null) {
     throw new Error(
       "Claude Code CLI is not installed. Install it with: npm install -g @anthropic-ai/claude-code"
     );
   }
+}
 
-  // Layer 3: auth state probe
+async function requireClaudeCodeAuthenticated(): Promise<void> {
   const authProcess = Bun.spawn(["claude", "auth", "status"], {
     stdout: "pipe",
     stderr: "pipe",
@@ -200,32 +217,22 @@ export async function createClaudeCodeModels(config: ServerConfig, wrap: (model:
       "Claude Code CLI is not authenticated. Authenticate with: claude login"
     );
   }
+}
 
-  // Build provider options from config
-  const providerSettings: Record<string, unknown> = {};
+// config effort uses "normal" while provider uses "medium" for the middle tier
+const claudeCodeEffortToProviderEffort: Record<string, string> = {
+  low: "low",
+  normal: "medium",
+  high: "high",
+};
+
+function buildClaudeCodeProviderSettings(config: ServerConfig): Record<string, unknown> {
+  const settings: Record<string, unknown> = {};
   if (config.claudeCodeEffort !== undefined) {
-    // Map config effort values to provider effort values
-    // config: "low" | "normal" | "high"
-    // provider: "low" | "medium" | "high" | "max"
-    const effortMap: Record<string, string> = {
-      low: "low",
-      normal: "medium",
-      high: "high",
-    };
-    providerSettings.effort = effortMap[config.claudeCodeEffort];
+    settings.effort = claudeCodeEffortToProviderEffort[config.claudeCodeEffort];
   }
   if (config.claudeCodeMaxBudgetUsd !== undefined) {
-    providerSettings.maxBudgetUsd = config.claudeCodeMaxBudgetUsd;
+    settings.maxBudgetUsd = config.claudeCodeMaxBudgetUsd;
   }
-
-  const model = (modelId: string) => wrap(claudeCodeProvider(modelId, providerSettings));
-
-  return {
-    chatAgentModel: model(config.chatAgentModelId),
-    extractionModel: model(config.extractionModelId),
-    pmAgentModel: model(config.pmAgentModelId),
-    analyticsAgentModel: model(config.analyticsAgentModelId),
-    observerModel: model(config.observerModelId),
-    scorerModel: model(config.scorerModelId),
-  };
+  return settings;
 }

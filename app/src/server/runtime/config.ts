@@ -11,6 +11,9 @@ export type InferenceProvider = "openrouter" | "ollama" | "claude-code";
 
 export type ClaudeCodeEffort = "low" | "normal" | "high";
 
+const OPENROUTER_REASONING_EFFORTS: OpenRouterReasoningEffort[] = ["xhigh", "high", "medium", "low", "minimal", "none"];
+const CLAUDE_CODE_EFFORTS: ClaudeCodeEffort[] = ["low", "normal", "high"];
+
 export type ServerConfig = {
   inferenceProvider: InferenceProvider;
   openRouterApiKey?: string;
@@ -230,9 +233,7 @@ function parseOpenRouterReasoning(): OpenRouterReasoningOptions | undefined {
   const reasoning: OpenRouterReasoningOptions = {};
 
   if (effortValue) {
-    const allowedEfforts: OpenRouterReasoningEffort[] = ["xhigh", "high", "medium", "low", "minimal", "none"];
-
-    if (!allowedEfforts.includes(effortValue as OpenRouterReasoningEffort)) {
+    if (!OPENROUTER_REASONING_EFFORTS.includes(effortValue as OpenRouterReasoningEffort)) {
       throw new Error("OPENROUTER_REASONING_EFFORT must be one of xhigh, high, medium, low, minimal, none");
     }
     reasoning.effort = effortValue as OpenRouterReasoningEffort;
@@ -253,8 +254,7 @@ function parseClaudeCodeEffort(): ClaudeCodeEffort | undefined {
   const value = Bun.env.CLAUDE_CODE_EFFORT?.trim();
   if (!value) return undefined;
 
-  const allowedEfforts: ClaudeCodeEffort[] = ["low", "normal", "high"];
-  if (!allowedEfforts.includes(value as ClaudeCodeEffort)) {
+  if (!CLAUDE_CODE_EFFORTS.includes(value as ClaudeCodeEffort)) {
     throw new Error(`CLAUDE_CODE_EFFORT must be one of: low, normal, high`);
   }
   return value as ClaudeCodeEffort;
