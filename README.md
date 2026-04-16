@@ -225,6 +225,44 @@ SURREAL_DATABASE=app
 PORT=3000
 ```
 
+#### claude-code
+
+Routes all inference through the [Claude Code](https://github.com/anthropic-ai/claude-code) CLI. This profile requires an interactive terminal with a pre-authenticated Claude session — it is not suitable for Docker containers, Kubernetes pods, or headless CI environments where no browser is available.
+
+**One-time setup**
+
+```bash
+# Install the Claude Code CLI globally
+npm install -g @anthropic-ai/claude-code
+
+# Authenticate (opens browser)
+claude login
+```
+
+```bash
+INFERENCE_PROVIDER=claude-code
+# Optional: reasoning effort for the Claude Code provider (default: normal)
+CLAUDE_CODE_EFFORT=normal       # low | normal | high
+# Optional: per-request spend cap in USD (omit to apply no cap)
+CLAUDE_CODE_MAX_BUDGET_USD=0.50
+CHAT_AGENT_MODEL=<claude-model-id>
+EXTRACTION_MODEL=<claude-model-id>
+ANALYTICS_MODEL=<claude-model-id>
+PM_AGENT_MODEL=<claude-model-id>
+OBSERVER_MODEL=<claude-model-id>
+BEHAVIOR_SCORER_MODEL=<claude-model-id>
+EMBEDDING_MODEL=<embedding-model-id>
+EMBEDDING_DIMENSION=1536
+EXTRACTION_STORE_THRESHOLD=0.6
+EXTRACTION_DISPLAY_THRESHOLD=0.85
+SURREAL_URL=ws://127.0.0.1:8000/rpc
+SURREAL_USERNAME=root
+SURREAL_PASSWORD=root
+SURREAL_NAMESPACE=brain
+SURREAL_DATABASE=app
+PORT=3000
+```
+
 ### 5) Apply migrations
 
 ```bash
